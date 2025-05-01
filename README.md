@@ -1,33 +1,37 @@
-# Gymnasium Examples
-Some simple examples of Gymnasium environments and wrappers.
-For some explanations of these examples, see the [Gymnasium documentation](https://gymnasium.farama.org).
+# DroneTSP
 
-### Environments
-This repository hosts the examples that are shown [on the environment creation documentation](https://gymnasium.farama.org/tutorials/gymnasium_basics/environment_creation/).
-- `GridWorldEnv`: Simplistic implementation of gridworld environment
+Môi trường drone giao hàng dựa trên bài toán TSP. Môi trường này dùng cho các dự án học tăng cường.
 
-### Wrappers
-This repository hosts the examples that are shown [on wrapper documentation](https://gymnasium.farama.org/api/wrappers/).
-- `ClipReward`: A `RewardWrapper` that clips immediate rewards to a valid range
-- `DiscreteActions`: An `ActionWrapper` that restricts the action space to a finite subset
-- `RelativePosition`: An `ObservationWrapper` that computes the relative position between an agent and a target
-- `ReacherRewardWrapper`: Allow us to weight the reward terms for the reacher environment
+## Môi trường
 
-### Contributing
-If you would like to contribute, follow these steps:
-- Fork this repository
-- Clone your fork
-- Set up pre-commit via `pre-commit install`
+Kho lưu trữ này lưu trữ các ví dụ được hiển thị [trong tài liệu tạo môi trường](https://gymnasium.farama.org/tutorials/gymnasium_basics/environment_creation/).
 
-PRs may require accompanying PRs in [the documentation repo](https://github.com/Farama-Foundation/Gymnasium/tree/main/docs).
+- `DroneTspEnv`: Môi trường drone giao hàng dựa trên bài toán TSP.
 
+## Bộ bao
 
-## Installation
+Kho lưu trữ này lưu trữ các ví dụ được hiển thị [trong tài liệu bộ bao](https://gymnasium.farama.org/api/wrappers/).
 
-To install your new environment, run the following commands:
+- `ClipReward`: Một `RewardWrapper` cắt giảm phần thưởng ngay lập tức vào một phạm vi hợp lệ
+- `DiscreteActions`: Một `ActionWrapper` giới hạn không gian hành động vào một tập hợp con hữu hạn
+- `RelativePosition`: Một `ObservationWrapper` tính toán vị trí tương đối giữa một tác nhân và một mục tiêu
+- `ReacherRewardWrapper`: Cho phép chúng ta cân nhắc các điều khoản phần thưởng cho môi trường reacher
 
-```{shell}
+## Đóng góp
+
+Nếu bạn muốn đóng góp, hãy làm theo các bước sau:
+
+- Fork kho lưu trữ này
+- Clone fork của bạn
+- Cài đặt pre-commit qua `pre-commit install`
+
+PRs có thể yêu cầu PRs đi kèm trong [kho tài liệu](https://github.com/Farama-Foundation/Gymnasium/tree/main/docs).
+
+## Cài đặt
+
+Để cài đặt môi trường mới của bạn, hãy chạy các lệnh sau:
+
+```bash
 cd gymnasium_env
 pip install -e .
 ```
-
