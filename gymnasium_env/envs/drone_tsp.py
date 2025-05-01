@@ -5,6 +5,7 @@ import numpy as np
 from node_encoder import NodeEncoder
 from interfaces import NODE_TYPES
 from interfaces import Node
+from utils import euclidean_distance
 
 
 class DroneTspEnv(gym.Env):
@@ -32,6 +33,8 @@ class DroneTspEnv(gym.Env):
         self.action_space = spaces.Discrete(n=total_num_nodes, start=0)
 
         self.__init_nodes()
+        MAX_PAYLOAD = 40
+        
 
         # Lưu lại vị trí (index trong self.nodes) hiện tại của drone, depot luôn là index 0
         self.drone_position = 0
@@ -39,6 +42,8 @@ class DroneTspEnv(gym.Env):
         self.total_distance = 0
         # Năng lượng tiêu thụ
         self.energy_consumption = 0
+        # Lưu index của node trước đó
+        self.prev_position = self.drone_position
 
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode = render_mode
@@ -61,6 +66,7 @@ class DroneTspEnv(gym.Env):
                 x=self.np_random.integers(COOR_BOTTOM_LIMIT, COOR_TOP_LIMIT),
                 y=self.np_random.integers(COOR_BOTTOM_LIMIT, COOR_TOP_LIMIT),
                 node_type=NODE_TYPES.depot,
+                package_weight=0.0,
                 visited_order=0
             )
         ]
@@ -69,6 +75,7 @@ class DroneTspEnv(gym.Env):
                 x=self.np_random.integers(COOR_BOTTOM_LIMIT, COOR_TOP_LIMIT),
                 y=self.np_random.integers(COOR_BOTTOM_LIMIT, COOR_TOP_LIMIT),
                 node_type=NODE_TYPES.customer,
+                package_weight=0.0,
                 visited_order=0
             ) for _ in range(self.num_customer_nodes)
         ]
@@ -77,6 +84,7 @@ class DroneTspEnv(gym.Env):
                 x=self.np_random.integers(COOR_BOTTOM_LIMIT, COOR_TOP_LIMIT),
                 y=self.np_random.integers(COOR_BOTTOM_LIMIT, COOR_TOP_LIMIT),
                 node_type=NODE_TYPES.charging_station,
+                package_weight=0.0,
                 visited_order=0
             ) for _ in range(self.num_charge_nodes)
         ]
@@ -102,6 +110,7 @@ class DroneTspEnv(gym.Env):
         self.drone_position = 0
         self.total_distance = 0
         self.energy_consumption = 0
+        self.prev_position = self.drone_position
 
         observation = self._get_obs()
         info = self._get_info()
@@ -112,22 +121,25 @@ class DroneTspEnv(gym.Env):
         return observation, info
 
     def step(self, action):
-        # Map the action (element of {0,1,2,3}) to the direction we walk in
-        direction = self._action_to_direction[action]
-        # We use `np.clip` to make sure we don't leave the grid
-        self._agent_location = np.clip(
-            self._agent_location + direction, 0, self.size - 1
-        )
-        # An episode is done iff the agent has reached the target
-        terminated = np.array_equal(self._agent_location, self._target_location)
-        reward = 1 if terminated else 0  # Binary sparse rewards
+        # Action là index của node trong danh sách tất cả node bao gồm khách hàng và trạm sạc.
+        prev_node = self.all_nodes[self.prev_position]
+        selected_node = self.all_nodes[action]
+
+        distance = euclidean_distance(node_1=prev_node, node_2=selected_node)
+
+        
+        reward = 0
+        terminated, truncated = False, False
         observation = self._get_obs()
         info = self._get_info()
+
+        # Đánh dấu là node trước đó sau khi hoàn thành xử lý
+        self.prev_position = action
 
         if self.render_mode == "human":
             self._render_frame()
 
-        return observation, reward, terminated, False, info
+        return observation, reward, terminated, truncated, info
 
     def render(self):
         if self.render_mode == "rgb_array":

@@ -12,4 +12,5 @@ class Node:
     x: int
     y: int
     node_type: NODE_TYPES
+    package_weight: float
     visited_order: int
