@@ -5,6 +5,7 @@ import numpy as np
 from gymnasium_env.envs.node_encoder import NodeEncoder
 from gymnasium_env.envs.interfaces import NODE_TYPES, Node
 from gymnasium_env.envs.utils import euclidean_distance, calc_energy_consumption, generate_packages_weight
+import random
 
 
 class DroneTspEnv(gym.Env):
@@ -15,6 +16,7 @@ class DroneTspEnv(gym.Env):
         self.num_charge_nodes = num_charge_nodes
         self.energy_limit = energy_limit # Nếu energy_limit = -1 nghĩa là không quan tâm đến năng lượng.
 
+        # Số 1 là node depot
         total_num_nodes = 1 + self.num_customer_nodes + self.num_charge_nodes
         self.observation_space = spaces.Dict(
             {
@@ -67,7 +69,7 @@ class DroneTspEnv(gym.Env):
                 y=int(self.np_random.integers(COOR_BOTTOM_LIMIT, COOR_TOP_LIMIT)),
                 node_type=NODE_TYPES.depot,
                 package_weight=0.0,
-                visited_order=0
+                visited_order=1
             )
         ]
         self.customer_nodes = [
@@ -100,6 +102,18 @@ class DroneTspEnv(gym.Env):
 
     def _get_info(self):
         return {}
+
+    def sample(self) -> int:
+        """
+        Trả về index ngẫu nhiên của một node chưa được ghé thăm.
+        Dùng để thay thế cho action_space.sample().
+        """
+        unvisited_indices = [
+            idx for idx, node in enumerate(self.all_nodes) if node.visited_order == 0
+        ]
+        if not unvisited_indices:
+            return 0 # Không còn node nào để đi thì trả về vị trí đầu tiên là depot
+        return self.np_random.choice(unvisited_indices)
 
     def reset(self, seed=None, options=None):
         # We need the following line to seed self.np_random
