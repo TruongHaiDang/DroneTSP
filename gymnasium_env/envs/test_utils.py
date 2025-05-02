@@ -1,6 +1,6 @@
 import unittest
 from interfaces import Node, NODE_TYPES
-from utils import euclidean_distance, generate_package_weight, energy_consumption
+from utils import euclidean_distance, generate_packages_weight, calc_energy_consumption
 
 
 class TestUtils(unittest.TestCase):
@@ -17,21 +17,21 @@ class TestUtils(unittest.TestCase):
         distance_2 = euclidean_distance(node_1=node_1, node_2=node_2)
         self.assertEqual(first=distance_2, second=5, msg="Kết quả không giống kết quả đã biết trước.")
 
-    def test_generate_package_weight(self):
+    def test_generate_packages_weight(self):
         total_packages = 10
         total_weight = 40
-        packages = generate_package_weight(max_weight=total_weight, total_packages=total_packages)
+        packages = generate_packages_weight(max_weight=total_weight, total_packages=total_packages)
         self.assertEqual(first=len(packages), second=total_packages, msg="Không đủ số lượng hàng hoá.")
         self.assertEqual(first=sum(packages), second=total_weight, msg="Không đủ khối lượng hàng hoá.")
 
     def test_energy_consumption(self):
         gij_1 = 0
         gij_2 = 15
-        energy_1 = energy_consumption(gij=gij_1)
-        energy_2 = energy_consumption(gij=gij_2)
+        energy_1 = calc_energy_consumption(gij=gij_1)
+        energy_2 = calc_energy_consumption(gij=gij_2)
         self.assertGreater(a=energy_2, b=energy_1, msg="Mang theo khối lượng hàng lớn hơn nhưng năng lượng tiêu thụ nhỏ hơn.")
         with self.assertRaises(ValueError, msg="Không raise ValueError khi nhập khối lượng âm."):
-            energy_consumption(gij=-10)
+            calc_energy_consumption(gij=-10)
 
 if __name__ == '__main__':
     unittest.main()

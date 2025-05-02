@@ -8,7 +8,7 @@ def euclidean_distance(node_1: Node, node_2: Node):
     x2, y2 = node_2.x, node_2.y
     return np.linalg.norm(np.array([x1, y1]) - np.array([x2, y2]))
 
-def generate_package_weight(max_weight: float, total_packages: int):
+def generate_packages_weight(max_weight: float, total_packages: int):
     if max_weight == 0 or total_packages == 0:
         return []
 
@@ -36,7 +36,7 @@ def generate_package_weight(max_weight: float, total_packages: int):
 
     return result
 
-def energy_consumption(gij: float):
+def calc_energy_consumption(gij: float):
     """Tính năng lượng tiêu thụ, hàm này theo công thức trong bài báo 
     Trajectory Optimization for Drone Logistics
     Delivery via Attention-Based Pointer Network
