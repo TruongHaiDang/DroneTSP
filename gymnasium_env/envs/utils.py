@@ -1,5 +1,5 @@
 import numpy as np
-from interfaces import Node
+from gymnasium_env.envs.interfaces import Node
 import random
 
 

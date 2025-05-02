@@ -2,9 +2,9 @@ import gymnasium as gym
 from gymnasium import spaces
 import pygame
 import numpy as np
-from node_encoder import NodeEncoder
-from interfaces import NODE_TYPES, Node
-from utils import euclidean_distance, calc_energy_consumption, generate_packages_weight
+from gymnasium_env.envs.node_encoder import NodeEncoder
+from gymnasium_env.envs.interfaces import NODE_TYPES, Node
+from gymnasium_env.envs.utils import euclidean_distance, calc_energy_consumption, generate_packages_weight
 
 
 class DroneTspEnv(gym.Env):
@@ -15,7 +15,7 @@ class DroneTspEnv(gym.Env):
         self.num_charge_nodes = num_charge_nodes
         self.energy_limit = energy_limit # Nếu energy_limit = -1 nghĩa là không quan tâm đến năng lượng.
 
-        total_num_nodes = self.num_customer_nodes + self.num_charge_nodes
+        total_num_nodes = 1 + self.num_customer_nodes + self.num_charge_nodes
         self.observation_space = spaces.Dict(
             {
                 # Gộp khách hàng và trạm sạc.
@@ -29,8 +29,6 @@ class DroneTspEnv(gym.Env):
 
         # Action là index trong danh sách tất cả node.
         self.action_space = spaces.Discrete(n=total_num_nodes, start=0)
-
-        self.__init_nodes()
         
         # Tổng khoảng cách đã đi
         self.total_distance = 0
@@ -40,6 +38,8 @@ class DroneTspEnv(gym.Env):
         self.prev_position = 0
         # Khối lượng hàng drone đang mang
         self.remain_packages_weight = 40
+
+        self.__init_nodes()
 
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode = render_mode
@@ -53,6 +53,9 @@ class DroneTspEnv(gym.Env):
         """
         self.window = None
         self.clock = None
+        if self.render_mode == "human":
+            self.screen_width = 1920
+            self.screen_height = 1080
 
     def __init_nodes(self):
         COOR_BOTTOM_LIMIT, COOR_TOP_LIMIT = 10, 101
@@ -60,8 +63,8 @@ class DroneTspEnv(gym.Env):
 
         self.depot = [
             Node(
-                x=self.np_random.integers(COOR_BOTTOM_LIMIT, COOR_TOP_LIMIT),
-                y=self.np_random.integers(COOR_BOTTOM_LIMIT, COOR_TOP_LIMIT),
+                x=int(self.np_random.integers(COOR_BOTTOM_LIMIT, COOR_TOP_LIMIT)),
+                y=int(self.np_random.integers(COOR_BOTTOM_LIMIT, COOR_TOP_LIMIT)),
                 node_type=NODE_TYPES.depot,
                 package_weight=0.0,
                 visited_order=0
@@ -69,17 +72,17 @@ class DroneTspEnv(gym.Env):
         ]
         self.customer_nodes = [
             Node(
-                x=self.np_random.integers(COOR_BOTTOM_LIMIT, COOR_TOP_LIMIT),
-                y=self.np_random.integers(COOR_BOTTOM_LIMIT, COOR_TOP_LIMIT),
+                x=int(self.np_random.integers(COOR_BOTTOM_LIMIT, COOR_TOP_LIMIT)),
+                y=int(self.np_random.integers(COOR_BOTTOM_LIMIT, COOR_TOP_LIMIT)),
                 node_type=NODE_TYPES.customer,
-                package_weight=packages_weight[i],
+                package_weight=float(packages_weight[i]),
                 visited_order=0
             ) for i in range(self.num_customer_nodes)
         ]
         self.charge_nodes = [
             Node(
-                x=self.np_random.integers(COOR_BOTTOM_LIMIT, COOR_TOP_LIMIT),
-                y=self.np_random.integers(COOR_BOTTOM_LIMIT, COOR_TOP_LIMIT),
+                x=int(self.np_random.integers(COOR_BOTTOM_LIMIT, COOR_TOP_LIMIT)),
+                y=int(self.np_random.integers(COOR_BOTTOM_LIMIT, COOR_TOP_LIMIT)),
                 node_type=NODE_TYPES.charging_station,
                 package_weight=0.0,
                 visited_order=0
@@ -106,6 +109,7 @@ class DroneTspEnv(gym.Env):
         self.total_distance = 0
         self.total_energy_consumption = 0
         self.prev_position = 0
+        self.remain_packages_weight = 40
 
         observation = self._get_obs()
         info = self._get_info()
@@ -159,49 +163,14 @@ class DroneTspEnv(gym.Env):
         if self.window is None and self.render_mode == "human":
             pygame.init()
             pygame.display.init()
-            self.window = pygame.display.set_mode((self.window_size, self.window_size))
+            self.window = pygame.display.set_mode((self.screen_width, self.screen_height))
         if self.clock is None and self.render_mode == "human":
             self.clock = pygame.time.Clock()
 
-        canvas = pygame.Surface((self.window_size, self.window_size))
+        canvas = pygame.Surface((self.screen_width, self.screen_height))
         canvas.fill((255, 255, 255))
-        pix_square_size = (
-            self.window_size / self.size
-        )  # The size of a single grid square in pixels
-
-        # First we draw the target
-        pygame.draw.rect(
-            canvas,
-            (255, 0, 0),
-            pygame.Rect(
-                pix_square_size * self._target_location,
-                (pix_square_size, pix_square_size),
-            ),
-        )
-        # Now we draw the agent
-        pygame.draw.circle(
-            canvas,
-            (0, 0, 255),
-            (self._agent_location + 0.5) * pix_square_size,
-            pix_square_size / 3,
-        )
-
-        # Finally, add some gridlines
-        for x in range(self.size + 1):
-            pygame.draw.line(
-                canvas,
-                0,
-                (0, pix_square_size * x),
-                (self.window_size, pix_square_size * x),
-                width=3,
-            )
-            pygame.draw.line(
-                canvas,
-                0,
-                (pix_square_size * x, 0),
-                (pix_square_size * x, self.window_size),
-                width=3,
-            )
+        
+        
 
         if self.render_mode == "human":
             # The following line copies our drawings from `canvas` to the visible window

@@ -1,5 +1,5 @@
 import numpy as np
-from interfaces import Node, NODE_TYPES
+from gymnasium_env.envs.interfaces import Node, NODE_TYPES
 
 
 class NodeEncoder:

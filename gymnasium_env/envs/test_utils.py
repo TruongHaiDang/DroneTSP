@@ -1,6 +1,6 @@
 import unittest
-from interfaces import Node, NODE_TYPES
-from utils import euclidean_distance, generate_packages_weight, calc_energy_consumption
+from gymnasium_env.envs.interfaces import Node, NODE_TYPES
+from gymnasium_env.envs.utils import euclidean_distance, generate_packages_weight, calc_energy_consumption
 
 
 class TestUtils(unittest.TestCase):
