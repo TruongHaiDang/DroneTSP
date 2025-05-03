@@ -14,7 +14,8 @@ if __name__ == "__main__":
 
     done = False
     while not done:
-        action = env.action_space.sample()
+        action = env.unwrapped._sample()
+        print('-'*50)
         print('Action', action)
         observation, reward, terminated, truncated, info = env.step(action=action)
         done = terminated or truncated

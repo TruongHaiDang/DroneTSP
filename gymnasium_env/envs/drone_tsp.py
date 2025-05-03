@@ -103,7 +103,7 @@ class DroneTspEnv(gym.Env):
     def _get_info(self):
         return {}
 
-    def sample(self) -> int:
+    def _sample(self) -> int:
         """
         Trả về index ngẫu nhiên của một node chưa được ghé thăm.
         Dùng để thay thế cho action_space.sample().
@@ -111,9 +111,10 @@ class DroneTspEnv(gym.Env):
         unvisited_indices = [
             idx for idx, node in enumerate(self.all_nodes) if node.visited_order == 0
         ]
+        print('unvisited_indices', unvisited_indices)
         if not unvisited_indices:
             return 0 # Không còn node nào để đi thì trả về vị trí đầu tiên là depot
-        return self.np_random.choice(unvisited_indices)
+        return np.random.choice(unvisited_indices)
 
     def reset(self, seed=None, options=None):
         # We need the following line to seed self.np_random
@@ -137,6 +138,8 @@ class DroneTspEnv(gym.Env):
         # Action là index của node trong danh sách tất cả node bao gồm khách hàng và trạm sạc.
         prev_node = self.all_nodes[self.prev_position]
         selected_node = self.all_nodes[action]
+        order = len([node for node in self.all_nodes if node.visited_order > 0])
+        selected_node.visited_order = order
 
         distance = euclidean_distance(node_1=prev_node, node_2=selected_node)
         self.remain_packages_weight -= selected_node.package_weight
