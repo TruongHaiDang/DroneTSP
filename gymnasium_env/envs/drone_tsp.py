@@ -5,7 +5,7 @@ import numpy as np
 from gymnasium_env.envs.node_encoder import NodeEncoder
 from gymnasium_env.envs.interfaces import NODE_TYPES, Node
 from gymnasium_env.envs.utils import euclidean_distance, calc_energy_consumption, generate_packages_weight
-import random
+from gymnasium_env.envs.tsp_map import TspMap
 
 
 class DroneTspEnv(gym.Env):
@@ -58,6 +58,8 @@ class DroneTspEnv(gym.Env):
         if self.render_mode == "human":
             self.screen_width = 1920
             self.screen_height = 1080
+            self.tsp_map = TspMap(width=self.screen_width, height=self.screen_height)
+            self.tsp_map.load_map()
 
     def __init_nodes(self):
         COOR_BOTTOM_LIMIT, COOR_TOP_LIMIT = 10, 101
@@ -111,7 +113,6 @@ class DroneTspEnv(gym.Env):
         unvisited_indices = [
             idx for idx, node in enumerate(self.all_nodes) if node.visited_order == 0
         ]
-        print('unvisited_indices', unvisited_indices)
         if not unvisited_indices:
             return 0 # Không còn node nào để đi thì trả về vị trí đầu tiên là depot
         return np.random.choice(unvisited_indices)
@@ -187,17 +188,11 @@ class DroneTspEnv(gym.Env):
         canvas = pygame.Surface((self.screen_width, self.screen_height))
         canvas.fill((255, 255, 255))
 
-        # === VẼ LƯỚI ===
-        grid_size = 50  # Kích thước mỗi ô (pixel)
-        grid_color = (220, 220, 220)  # Màu xám nhạt
-
-        # Vẽ các đường dọc
-        for x in range(0, self.screen_width, grid_size):
-            pygame.draw.line(canvas, grid_color, (x, 0), (x, self.screen_height))
-
-        # Vẽ các đường ngang
-        for y in range(0, self.screen_height, grid_size):
-            pygame.draw.line(canvas, grid_color, (0, y), (self.screen_width, y))
+        # Vẽ bản đồ
+        if hasattr(self, "tsp_map"):
+            if self.tsp_map.surface is None:
+                self.tsp_map.render_to_surface()  # Chỉ render khi display đã init
+            canvas.blit(self.tsp_map.get_surface(), (0, 0))
 
         # === COPY LÊN WINDOW ===
         if self.render_mode == "human":
