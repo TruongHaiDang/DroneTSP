@@ -56,10 +56,9 @@ class DroneTspEnv(gym.Env):
         self.window = None
         self.clock = None
         if self.render_mode == "human":
-            self.screen_width = 1920
-            self.screen_height = 1080
-            self.tsp_map = TspMap(width=self.screen_width, height=self.screen_height)
-            self.tsp_map.load_map()
+            self.screen_width = 1366
+            self.screen_height = 768
+            self.tsp_map = TspMap(width=self.screen_width, height=self.screen_height, center=(10.7769, 106.7009), zoom=15)
 
     def __init_nodes(self):
         COOR_BOTTOM_LIMIT, COOR_TOP_LIMIT = 10, 101
@@ -191,7 +190,8 @@ class DroneTspEnv(gym.Env):
         # Vẽ bản đồ
         if hasattr(self, "tsp_map"):
             if self.tsp_map.surface is None:
-                self.tsp_map.render_to_surface()  # Chỉ render khi display đã init
+                self.tsp_map.set_nodes(nodes=self.all_nodes)
+                self.tsp_map.render_to_surface()
             canvas.blit(self.tsp_map.get_surface(), (0, 0))
 
         # === COPY LÊN WINDOW ===

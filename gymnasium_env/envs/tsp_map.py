@@ -1,55 +1,44 @@
-import osmnx as ox
-import matplotlib.pyplot as plt
-from io import BytesIO
+from staticmap import StaticMap, CircleMarker
 import pygame
+from io import BytesIO
+
 
 class TspMap:
-    """
-    Class để tải và vẽ bản đồ OSM lên pygame surface.
-    """
-
-    def __init__(self, place_name="Ho Chi Minh City, Vietnam", width=1920, height=1080):
+    def __init__(self, width=1920, height=1080, center=(10.7769, 106.7009), zoom=15):
         """
-        Khởi tạo với tên địa điểm và kích thước màn hình.
+        center: tuple(lat, lon) — toạ độ trung tâm bản đồ.
+        zoom: mức phóng to (12-18 là hợp lý).
         """
-        self.place_name = place_name
         self.screen_width = width
         self.screen_height = height
-        self.graph = None
+        self.center = center
+        self.zoom = zoom
         self.surface = None
-
-    def load_map(self):
-        """
-        Tải mạng lưới đường phố từ OpenStreetMap sử dụng osmnx.
-        """
-        # Tải mạng lưới đường phố dành cho xe hơi
-        self.graph = ox.graph_from_place(self.place_name, network_type='drive')
+        self.all_nodes = []
 
     def render_to_surface(self):
         """
-        Dùng matplotlib để render bản đồ, sau đó chuyển đổi sang pygame Surface.
+        Tạo bản đồ dạng bitmap tiles giống Google Maps và chuyển sang pygame Surface.
         """
-        if self.graph is None:
-            raise ValueError("Bạn cần gọi load_map() trước khi render.")
+        m = StaticMap(self.screen_width, self.screen_height, url_template='http://a.tile.openstreetmap.org/{z}/{x}/{y}.png')
 
-        # Vẽ mạng lưới với matplotlib
-        fig, ax = ox.plot_graph(
-            self.graph, show=False, close=False, figsize=(self.screen_width / 100, self.screen_height / 100)
-        )
+        # Optionally: thêm marker trung tâm bản đồ
+        m.add_marker(CircleMarker((self.center[1], self.center[0]), 'red', 12))
 
-        # Lưu figure vào buffer
+        # Render ra ảnh PIL
+        image = m.render(zoom=self.zoom, center=(self.center[1], self.center[0]))  # lon, lat
+
+        # Chuyển ảnh PIL sang pygame Surface
         buffer = BytesIO()
-        fig.savefig(buffer, format="png", bbox_inches="tight", pad_inches=0)
-        plt.close(fig)
+        image.save(buffer, format='PNG')
         buffer.seek(0)
 
-        # Load ảnh vào pygame
         self.surface = pygame.image.load(buffer).convert()
 
     def get_surface(self):
-        """
-        Trả về pygame Surface đã render, sẵn sàng để blit lên canvas.
-        """
         if self.surface is None:
-            raise ValueError("Chưa có surface — hãy gọi render_to_surface() trước.")
+            raise ValueError("Chưa render bản đồ.")
         return self.surface
+
+    def set_nodes(self, nodes: list):
+        self.all_nodes = nodes
