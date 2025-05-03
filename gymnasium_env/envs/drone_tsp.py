@@ -186,9 +186,20 @@ class DroneTspEnv(gym.Env):
 
         canvas = pygame.Surface((self.screen_width, self.screen_height))
         canvas.fill((255, 255, 255))
-        
-        
 
+        # === VẼ LƯỚI ===
+        grid_size = 50  # Kích thước mỗi ô (pixel)
+        grid_color = (220, 220, 220)  # Màu xám nhạt
+
+        # Vẽ các đường dọc
+        for x in range(0, self.screen_width, grid_size):
+            pygame.draw.line(canvas, grid_color, (x, 0), (x, self.screen_height))
+
+        # Vẽ các đường ngang
+        for y in range(0, self.screen_height, grid_size):
+            pygame.draw.line(canvas, grid_color, (0, y), (self.screen_width, y))
+
+        # === COPY LÊN WINDOW ===
         if self.render_mode == "human":
             # The following line copies our drawings from `canvas` to the visible window
             self.window.blit(canvas, canvas.get_rect())
