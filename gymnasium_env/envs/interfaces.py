@@ -9,8 +9,8 @@ class NODE_TYPES(Enum):
 
 @dataclass
 class Node:
-    x: int
-    y: int
+    lon: float
+    lat: float
     node_type: NODE_TYPES
     package_weight: float
     visited_order: int

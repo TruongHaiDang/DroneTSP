@@ -4,8 +4,9 @@ import pygame
 import numpy as np
 from gymnasium_env.envs.node_encoder import NodeEncoder
 from gymnasium_env.envs.interfaces import NODE_TYPES, Node
-from gymnasium_env.envs.utils import euclidean_distance, calc_energy_consumption, generate_packages_weight
+from gymnasium_env.envs.utils import calc_energy_consumption, generate_packages_weight
 from gymnasium_env.envs.tsp_map import TspMap
+from geopy.distance import geodesic
 
 
 class DroneTspEnv(gym.Env):
@@ -18,16 +19,16 @@ class DroneTspEnv(gym.Env):
 
         # Số 1 là node depot
         total_num_nodes = 1 + self.num_customer_nodes + self.num_charge_nodes
-        self.observation_space = spaces.Dict(
-            {
-                # Gộp khách hàng và trạm sạc.
-                "nodes": spaces.Box(low=-np.inf, high=np.inf, shape=(total_num_nodes, NodeEncoder.get_shape()), dtype=np.float32),
-                # Tổng khoảng cách đã đi
-                "total_distance": spaces.Box(low=0, high=np.inf, shape=(1,), dtype=np.float32),
-                # Năng lượng tiêu thụ, tính theo paper Trajectory Optimization for Drone Logistics Delivery via Attention-Based Pointer Network.
-                "energy_consumption": spaces.Box(low=0, high=np.inf, shape=(1,), dtype=np.float32)
-            }
-        )
+        self.observation_space = spaces.Dict({
+            "nodes": spaces.Box(
+                low=np.array([-180, -90, 0, 0, 0] * total_num_nodes, dtype=np.float32).reshape(total_num_nodes, -1),
+                high=np.array([180, 90, 2, 100, total_num_nodes] * total_num_nodes, dtype=np.float32).reshape(total_num_nodes, -1),
+                shape=(total_num_nodes, NodeEncoder.get_shape()),
+                dtype=np.float32
+            ),
+            "total_distance": spaces.Box(low=0, high=np.inf, shape=(1,), dtype=np.float32),
+            "energy_consumption": spaces.Box(low=0, high=np.inf, shape=(1,), dtype=np.float32)
+        })
 
         # Action là index trong danh sách tất cả node.
         self.action_space = spaces.Discrete(n=total_num_nodes, start=0)
@@ -47,11 +48,10 @@ class DroneTspEnv(gym.Env):
         self.render_mode = render_mode
 
         """
-        If human-rendering is used, `self.window` will be a reference
-        to the window that we draw to. `self.clock` will be a clock that is used
-        to ensure that the environment is rendered at the correct framerate in
-        human-mode. They will remain `None` until human-mode is used for the
-        first time.
+        # Nếu chế độ hiển thị người dùng được sử dụng, `self.window` sẽ là một tham chiếu
+        # đến cửa sổ mà chúng ta vẽ lên. `self.clock` sẽ là một đồng hồ được sử dụng
+        # để đảm bảo rằng môi trường được hiển thị với tốc độ khung hình chính xác trong
+        # chế độ người dùng. Chúng sẽ vẫn là `None` cho đến khi chế độ người dùng được sử dụng lần đầu tiên.
         """
         self.window = None
         self.clock = None
@@ -61,36 +61,59 @@ class DroneTspEnv(gym.Env):
             self.tsp_map = TspMap(width=self.screen_width, height=self.screen_height, center=(10.7769, 106.7009), zoom=15)
 
     def __init_nodes(self):
-        COOR_BOTTOM_LIMIT, COOR_TOP_LIMIT = 10, 101
-        packages_weight = generate_packages_weight(max_weight=self.remain_packages_weight, total_packages=self.num_customer_nodes)
+        # Giới hạn vĩ độ và kinh độ cho khu vực TP.HCM
+        LAT_BOTTOM, LAT_TOP = 10.75, 10.80
+        LON_LEFT, LON_RIGHT = 106.65, 106.72
 
+        # Sinh trọng lượng các gói hàng cho node khách hàng
+        packages_weight = generate_packages_weight(
+            max_weight=self.remain_packages_weight, total_packages=self.num_customer_nodes
+        )
+
+        # === Tạo node Depot ===
+        depot_lat = float(self.np_random.uniform(LAT_BOTTOM, LAT_TOP))
+        depot_lon = float(self.np_random.uniform(LON_LEFT, LON_RIGHT))
         self.depot = [
             Node(
-                x=int(self.np_random.integers(COOR_BOTTOM_LIMIT, COOR_TOP_LIMIT)),
-                y=int(self.np_random.integers(COOR_BOTTOM_LIMIT, COOR_TOP_LIMIT)),
+                lon=depot_lon,  # longitude
+                lat=depot_lat,  # latitude
                 node_type=NODE_TYPES.depot,
                 package_weight=0.0,
                 visited_order=1
             )
         ]
-        self.customer_nodes = [
-            Node(
-                x=int(self.np_random.integers(COOR_BOTTOM_LIMIT, COOR_TOP_LIMIT)),
-                y=int(self.np_random.integers(COOR_BOTTOM_LIMIT, COOR_TOP_LIMIT)),
-                node_type=NODE_TYPES.customer,
-                package_weight=float(packages_weight[i]),
-                visited_order=0
-            ) for i in range(self.num_customer_nodes)
-        ]
-        self.charge_nodes = [
-            Node(
-                x=int(self.np_random.integers(COOR_BOTTOM_LIMIT, COOR_TOP_LIMIT)),
-                y=int(self.np_random.integers(COOR_BOTTOM_LIMIT, COOR_TOP_LIMIT)),
-                node_type=NODE_TYPES.charging_station,
-                package_weight=0.0,
-                visited_order=0
-            ) for _ in range(self.num_charge_nodes)
-        ]
+
+        # === Tạo node Khách hàng ===
+        self.customer_nodes = []
+        for i in range(self.num_customer_nodes):
+            lat = float(self.np_random.uniform(LAT_BOTTOM, LAT_TOP))
+            lon = float(self.np_random.uniform(LON_LEFT, LON_RIGHT))
+            self.customer_nodes.append(
+                Node(
+                    lon=lon,
+                    lat=lat,
+                    node_type=NODE_TYPES.customer,
+                    package_weight=float(packages_weight[i]),
+                    visited_order=0
+                )
+            )
+
+        # === Tạo node Trạm sạc ===
+        self.charge_nodes = []
+        for _ in range(self.num_charge_nodes):
+            lat = float(self.np_random.uniform(LAT_BOTTOM, LAT_TOP))
+            lon = float(self.np_random.uniform(LON_LEFT, LON_RIGHT))
+            self.charge_nodes.append(
+                Node(
+                    lon=lon,
+                    lat=lat,
+                    node_type=NODE_TYPES.charging_station,
+                    package_weight=0.0,
+                    visited_order=0
+                )
+            )
+
+        # Gộp tất cả các node vào danh sách all_nodes
         self.all_nodes = self.depot + self.customer_nodes + self.charge_nodes
 
     def _get_obs(self):
@@ -141,7 +164,7 @@ class DroneTspEnv(gym.Env):
         order = len([node for node in self.all_nodes if node.visited_order > 0])
         selected_node.visited_order = order
 
-        distance = euclidean_distance(node_1=prev_node, node_2=selected_node)
+        distance = geodesic((prev_node.lat, prev_node.lon), (selected_node.lat, selected_node.lon)).meters
         self.remain_packages_weight -= selected_node.package_weight
         self.total_distance += distance
         energy_consumption = calc_energy_consumption(gij=self.remain_packages_weight)
@@ -190,7 +213,6 @@ class DroneTspEnv(gym.Env):
         # Vẽ bản đồ
         if hasattr(self, "tsp_map"):
             if self.tsp_map.surface is None:
-                self.tsp_map.set_nodes(nodes=self.all_nodes)
                 self.tsp_map.render_to_surface()
             canvas.blit(self.tsp_map.get_surface(), (0, 0))
 
