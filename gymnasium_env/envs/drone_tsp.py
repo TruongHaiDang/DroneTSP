@@ -56,8 +56,8 @@ class DroneTspEnv(gym.Env):
         self.window = None
         self.clock = None
         if self.render_mode == "human":
-            self.screen_width = 1366
-            self.screen_height = 768
+            self.screen_width = 1920
+            self.screen_height = 1080
             self.tsp_map = TspMap(width=self.screen_width, height=self.screen_height, center=(10.7769, 106.7009), zoom=15)
 
     def __init_nodes(self):
@@ -212,8 +212,22 @@ class DroneTspEnv(gym.Env):
 
         # Vẽ bản đồ
         if hasattr(self, "tsp_map"):
-            if self.tsp_map.surface is None:
-                self.tsp_map.render_to_surface()
+            # Giai đoạn tạo bản đồ
+            self.tsp_map.begin_render()
+
+            # Vẽ node
+            self.tsp_map.add_nodes(self.all_nodes)
+
+            # Vẽ đường đi (dựa vào visited_order)
+            visited_nodes = sorted(
+                [(idx, n) for idx, n in enumerate(self.all_nodes) if n.visited_order > 0],
+                key=lambda x: x[1].visited_order
+            )
+            path_indices = [idx for idx, _ in visited_nodes]
+            self.tsp_map.add_edges(path_indices, self.all_nodes)
+
+            # Kết xuất
+            self.tsp_map.commit()
             canvas.blit(self.tsp_map.get_surface(), (0, 0))
 
         # === COPY LÊN WINDOW ===
