@@ -1,6 +1,8 @@
 import gymnasium
-import gymnasium_env
+import gymnasium_env # Cái này không dùng nhưng bỏ đi thì bị lỗi. Magical.
 from time import sleep
+from pprint import pprint
+
 
 if __name__ == "__main__":
     env = gymnasium.make(
@@ -16,12 +18,14 @@ if __name__ == "__main__":
     while not done:
         action = env.unwrapped._sample()
         print('-'*50)
-        print('Action', action)
+        print('Action:', action)
         observation, reward, terminated, truncated, info = env.step(action=action)
         done = terminated or truncated
-        print('Observation', observation)
-        print('Reward', reward)
-        print('Terminated', terminated)
-        print('Truncated', truncated)
-        print('Info', info)
-        sleep(1)
+        print('Observation:')
+        pprint(observation)
+        print('Reward:', reward)
+        print('Terminated:', terminated)
+        print('Truncated:', truncated)
+        print('Info')
+        pprint(info)
+        sleep(0.5)

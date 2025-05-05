@@ -16,7 +16,7 @@ def export_to_folium(nodes: list, path_indices: list, file_path="render/index.ht
 
     # Lấy trung tâm bản đồ là depot
     depot = nodes[0]
-    m = folium.Map(location=[depot.lat, depot.lon], zoom_start=13, tiles="OpenStreetMap")
+    m = folium.Map(location=[depot.lat, depot.lon], zoom_start=14, tiles="OpenStreetMap")
 
     # Thêm marker cho từng node
     for i, node in enumerate(nodes):

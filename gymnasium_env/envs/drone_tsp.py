@@ -147,8 +147,11 @@ class DroneTspEnv(gym.Env):
         # Action là index của node trong danh sách tất cả node bao gồm khách hàng và trạm sạc.
         prev_node = self.all_nodes[self.prev_position]
         selected_node = self.all_nodes[action]
-        order = len([node for node in self.all_nodes if node.visited_order > 0])
-        selected_node.visited_order = order
+        # Chỉ cập nhật khi action lớn hơn 0, action bằng 0 là node cuối cùng quay về vị trí 
+        # xuất phát, không phải đi đến node mới
+        if action > 0:
+            order = len([node for node in self.all_nodes if node.visited_order > 0])
+            selected_node.visited_order = order + 1 # Những node đã đi qua cộng với vị trí đang xét.
 
         distance = geodesic((prev_node.lat, prev_node.lon), (selected_node.lat, selected_node.lon)).meters
         self.remain_packages_weight -= selected_node.package_weight
@@ -192,6 +195,8 @@ class DroneTspEnv(gym.Env):
             key=lambda x: x[1].visited_order
         )
         path_indices = [idx for idx, _ in visited_nodes]
+        if self.prev_position == 0: # Khi hàm step chạy xong thì prev_position cũng chính là action.
+            path_indices.append(0) # Nếu như action bằng 0 thì thêm 0 vào cuối để quay về.
 
         # Xuất bản đồ dạng HTML
         export_to_folium(nodes=self.all_nodes, path_indices=path_indices, file_path="render/index.html")
