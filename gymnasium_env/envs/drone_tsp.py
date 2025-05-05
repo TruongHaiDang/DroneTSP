@@ -1,12 +1,11 @@
 import gymnasium as gym
 from gymnasium import spaces
-import pygame
 import numpy as np
 from gymnasium_env.envs.node_encoder import NodeEncoder
 from gymnasium_env.envs.interfaces import NODE_TYPES, Node
 from gymnasium_env.envs.utils import calc_energy_consumption, generate_packages_weight
-from gymnasium_env.envs.tsp_map import TspMap
 from geopy.distance import geodesic
+from gymnasium_env.envs.folium_exporter import export_to_folium
 
 
 class DroneTspEnv(gym.Env):
@@ -46,19 +45,6 @@ class DroneTspEnv(gym.Env):
 
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode = render_mode
-
-        """
-        # Nếu chế độ hiển thị người dùng được sử dụng, `self.window` sẽ là một tham chiếu
-        # đến cửa sổ mà chúng ta vẽ lên. `self.clock` sẽ là một đồng hồ được sử dụng
-        # để đảm bảo rằng môi trường được hiển thị với tốc độ khung hình chính xác trong
-        # chế độ người dùng. Chúng sẽ vẫn là `None` cho đến khi chế độ người dùng được sử dụng lần đầu tiên.
-        """
-        self.window = None
-        self.clock = None
-        if self.render_mode == "human":
-            self.screen_width = 1920
-            self.screen_height = 1080
-            self.tsp_map = TspMap(width=self.screen_width, height=self.screen_height, center=(10.7769, 106.7009), zoom=15)
 
     def __init_nodes(self):
         # Giới hạn vĩ độ và kinh độ cho khu vực TP.HCM
@@ -200,53 +186,15 @@ class DroneTspEnv(gym.Env):
             return self._render_frame()
 
     def _render_frame(self):
-        if self.window is None and self.render_mode == "human":
-            pygame.init()
-            pygame.display.init()
-            self.window = pygame.display.set_mode((self.screen_width, self.screen_height))
-        if self.clock is None and self.render_mode == "human":
-            self.clock = pygame.time.Clock()
+        # Tạo danh sách các node đã được ghé thăm theo thứ tự
+        visited_nodes = sorted(
+            [(idx, n) for idx, n in enumerate(self.all_nodes) if n.visited_order > 0],
+            key=lambda x: x[1].visited_order
+        )
+        path_indices = [idx for idx, _ in visited_nodes]
 
-        canvas = pygame.Surface((self.screen_width, self.screen_height))
-        canvas.fill((255, 255, 255))
-
-        # Vẽ bản đồ
-        if hasattr(self, "tsp_map"):
-            # Giai đoạn tạo bản đồ
-            self.tsp_map.begin_render()
-
-            # Vẽ node
-            self.tsp_map.add_nodes(self.all_nodes)
-
-            # Vẽ đường đi (dựa vào visited_order)
-            visited_nodes = sorted(
-                [(idx, n) for idx, n in enumerate(self.all_nodes) if n.visited_order > 0],
-                key=lambda x: x[1].visited_order
-            )
-            path_indices = [idx for idx, _ in visited_nodes]
-            self.tsp_map.add_edges(path_indices, self.all_nodes)
-
-            # Kết xuất
-            self.tsp_map.commit()
-            canvas.blit(self.tsp_map.get_surface(), (0, 0))
-
-        # === COPY LÊN WINDOW ===
-        if self.render_mode == "human":
-            # The following line copies our drawings from `canvas` to the visible window
-            self.window.blit(canvas, canvas.get_rect())
-            pygame.event.pump()
-            pygame.display.update()
-
-            # We need to ensure that human-rendering occurs at the predefined framerate.
-            # The following line will automatically add a delay to
-            # keep the framerate stable.
-            self.clock.tick(self.metadata["render_fps"])
-        else:  # rgb_array
-            return np.transpose(
-                np.array(pygame.surfarray.pixels3d(canvas)), axes=(1, 0, 2)
-            )
+        # Xuất bản đồ dạng HTML
+        export_to_folium(nodes=self.all_nodes, path_indices=path_indices, file_path="render/index.html")
 
     def close(self):
-        if self.window is not None:
-            pygame.display.quit()
-            pygame.quit()
+        pass
