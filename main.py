@@ -10,14 +10,14 @@ if __name__ == "__main__":
         render_mode='human',
         num_customer_nodes=5,
         num_charge_nodes=1,
-        energy_limit=-1
+        max_energy=-1
     )
     observation, info = env.reset()
 
     done = False
     while not done:
         action = env.unwrapped._sample()
-        print('-'*50)
+        print('-'*100)
         print('Action:', action)
         observation, reward, terminated, truncated, info = env.step(action=action)
         done = terminated or truncated

@@ -11,10 +11,10 @@ from gymnasium_env.envs.folium_exporter import export_to_folium
 class DroneTspEnv(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
 
-    def __init__(self, render_mode=None, num_customer_nodes: int = 5, num_charge_nodes: int=1, energy_limit: float=-1.0):
+    def __init__(self, render_mode=None, num_customer_nodes: int = 5, num_charge_nodes: int=1, max_energy: float=-1.0):
         self.num_customer_nodes = num_customer_nodes
         self.num_charge_nodes = num_charge_nodes
-        self.energy_limit = energy_limit # Nếu energy_limit = -1 nghĩa là không quan tâm đến năng lượng.
+        self.max_energy = max_energy # Nếu energy_limit = -1 nghĩa là không quan tâm đến năng lượng.
 
         # Số 1 là node depot
         total_num_nodes = 1 + self.num_customer_nodes + self.num_charge_nodes
@@ -35,11 +35,13 @@ class DroneTspEnv(gym.Env):
         # Tổng khoảng cách đã đi
         self.total_distance = 0
         # Năng lượng tiêu thụ
-        self.energy_consumption = 0
+        self.total_energy_consumption = 0
         # Lưu index của node trước đó
         self.prev_position = 0
         # Khối lượng hàng drone đang mang
         self.remain_packages_weight = 40
+        # Đếm số lần sạc
+        self.charge_count = 0
 
         self.__init_nodes()
 
@@ -107,11 +109,13 @@ class DroneTspEnv(gym.Env):
         return {
             "nodes": nodes_array,
             "total_distance": np.array([self.total_distance], dtype=np.float32),
-            "energy_consumption": np.array([self.energy_consumption], dtype=np.float32)
+            "energy_consumption": np.array([self.total_energy_consumption], dtype=np.float32)
         }
 
     def _get_info(self):
-        return {}
+        return {
+            "charge_count": self.charge_count
+        }
 
     def _sample(self) -> int:
         """
@@ -119,7 +123,7 @@ class DroneTspEnv(gym.Env):
         Dùng để thay thế cho action_space.sample().
         """
         unvisited_indices = [
-            idx for idx, node in enumerate(self.all_nodes) if node.visited_order == 0
+            idx for idx, node in enumerate(self.all_nodes) if node.visited_order == 0 and node.node_type != NODE_TYPES.charging_station
         ]
         if not unvisited_indices:
             return 0 # Không còn node nào để đi thì trả về vị trí đầu tiên là depot
@@ -148,8 +152,8 @@ class DroneTspEnv(gym.Env):
         prev_node = self.all_nodes[self.prev_position]
         selected_node = self.all_nodes[action]
         # Chỉ cập nhật khi action lớn hơn 0, action bằng 0 là node cuối cùng quay về vị trí 
-        # xuất phát, không phải đi đến node mới
-        if action > 0:
+        # xuất phát, không phải đi đến node mới. Không giới hạn số lần đến trạm sạc.
+        if action > 0 and selected_node.node_type != NODE_TYPES.charging_station:
             order = len([node for node in self.all_nodes if node.visited_order > 0])
             selected_node.visited_order = order + 1 # Những node đã đi qua cộng với vị trí đang xét.
 
@@ -158,10 +162,16 @@ class DroneTspEnv(gym.Env):
         self.total_distance += distance
         energy_consumption = calc_energy_consumption(gij=self.remain_packages_weight)
         self.total_energy_consumption += energy_consumption
-        
+
+        # Nếu node này là trạm sạc thì reset mức năng lượng đã tiêu thụ
+        if selected_node.node_type == NODE_TYPES.charging_station:
+            self.charge_count += 1 # Lưu lại số lần sạc để biết agent có lạm dụng việc sạc hay không.
+            self.total_energy_consumption = 0
+
         terminated, truncated = False, False
-        # Hết năng lượng được xem là truncated.
-        if self.energy_limit != -1 and self.total_energy_consumption >= self.energy_limit:
+        # Hết năng lượng được xem là truncated. Khi năng lượng tiêu thụ vượt quá mức năng lượng tối đa
+        # thì được xem là hết năng lượng.
+        if self.max_energy != -1 and self.total_energy_consumption >= self.max_energy:
             truncated = True
         # Luôn bắt đầu từ 0, TSP phải quay về điểm bắt đầu thì mới được xem là hoàn thành.
         if action == 0:
@@ -169,9 +179,21 @@ class DroneTspEnv(gym.Env):
         
         reward = 0
         # Chỉ cung cấp reward khi hoàn thành lộ trình.
-        if terminated or truncated:
-            # Đi càng xa càng bị phạt, dùng càng nhiều năng lượng càng bị phạt.
-            reward = -self.total_distance -self.total_energy_consumption
+        DIST_PENALTY = 1.0
+        ENERGY_PENALTY = 1.0
+        CHARGE_PENALTY = 10.0
+        DEADLY_PENALTY = 1000.0
+
+        if terminated:
+            reward = -DIST_PENALTY * self.total_distance \
+                    -ENERGY_PENALTY * self.total_energy_consumption \
+                    -CHARGE_PENALTY * self.charge_count
+
+        elif truncated:
+            reward = -DEADLY_PENALTY \
+                    -DIST_PENALTY * self.total_distance \
+                    -ENERGY_PENALTY * self.total_energy_consumption \
+                    -CHARGE_PENALTY * self.charge_count
 
         observation = self._get_obs()
         info = self._get_info()
