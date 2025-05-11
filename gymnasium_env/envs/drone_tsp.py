@@ -11,22 +11,24 @@ from gymnasium_env.envs.folium_exporter import export_to_folium
 class DroneTspEnv(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
 
-    def __init__(self, render_mode=None, num_customer_nodes: int = 5, num_charge_nodes: int=1, max_energy: float=-1.0):
+    def __init__(self, render_mode=None, num_customer_nodes: int = 5, num_charge_nodes: int=1, package_weight: float=40, max_energy: float=-1.0, max_time: float=-1.0):
         self.num_customer_nodes = num_customer_nodes
         self.num_charge_nodes = num_charge_nodes
         self.max_energy = max_energy # Nếu energy_limit = -1 nghĩa là không quan tâm đến năng lượng.
+        self.max_time = max_time # Nếu max_time = -1 nghĩa là không quan tâm đến thời gian.
 
         # Số 1 là node depot
         total_num_nodes = 1 + self.num_customer_nodes + self.num_charge_nodes
         self.observation_space = spaces.Dict({
             "nodes": spaces.Box(
-                low=np.array([-180, -90, 0, 0, 0] * total_num_nodes, dtype=np.float32).reshape(total_num_nodes, -1),
-                high=np.array([180, 90, 2, 100, total_num_nodes] * total_num_nodes, dtype=np.float32).reshape(total_num_nodes, -1),
+                low=np.array([-180, -90, 0, 0, 0, 0, 0] * total_num_nodes, dtype=np.float32).reshape(total_num_nodes, -1),
+                high=np.array([180, 90, 2, 100, total_num_nodes, max_time, max_time] * total_num_nodes, dtype=np.float32).reshape(total_num_nodes, -1),
                 shape=(total_num_nodes, NodeEncoder.get_shape()),
                 dtype=np.float32
             ),
             "total_distance": spaces.Box(low=0, high=np.inf, shape=(1,), dtype=np.float32),
-            "energy_consumption": spaces.Box(low=0, high=np.inf, shape=(1,), dtype=np.float32)
+            "energy_consumption": spaces.Box(low=0, high=np.inf, shape=(1,), dtype=np.float32),
+            "current_time": spaces.Box(low=0, high=np.inf, shape=(1,), dtype=np.float32)
         })
 
         # Action là index trong danh sách tất cả node.
@@ -39,9 +41,13 @@ class DroneTspEnv(gym.Env):
         # Lưu index của node trước đó
         self.prev_position = 0
         # Khối lượng hàng drone đang mang
-        self.remain_packages_weight = 40
+        self.remain_packages_weight = package_weight
         # Đếm số lần sạc
         self.charge_count = 0
+        # Đếm thời gian
+        self.current_time = 0.0
+        # Tốc độ bay của drone, lấy theo DJI Fly-Cart 30
+        self.drone_speed = 15 * 3.6 # km/h
 
         self.__init_nodes()
 
@@ -58,6 +64,10 @@ class DroneTspEnv(gym.Env):
             max_weight=self.remain_packages_weight, total_packages=self.num_customer_nodes
         )
 
+        # Tạo khung thời gian (ví dụ random) cho khách hàng i
+        earliest_time_window = float(self.np_random.uniform(0, self.max_time))
+        latest_time_window = earliest_time_window + float(self.np_random.uniform(10, self.max_time))
+
         # === Tạo node Depot ===
         depot_lat = float(self.np_random.uniform(LAT_BOTTOM, LAT_TOP))
         depot_lon = float(self.np_random.uniform(LON_LEFT, LON_RIGHT))
@@ -67,7 +77,8 @@ class DroneTspEnv(gym.Env):
                 lat=depot_lat,  # latitude
                 node_type=NODE_TYPES.depot,
                 package_weight=0.0,
-                visited_order=1
+                visited_order=1,
+                time_window=(0.0, float('inf'))  # không giới hạn thời gian
             )
         ]
 
@@ -82,7 +93,8 @@ class DroneTspEnv(gym.Env):
                     lat=lat,
                     node_type=NODE_TYPES.customer,
                     package_weight=float(packages_weight[i]),
-                    visited_order=0
+                    visited_order=0,
+                    time_window=(earliest_time_window, latest_time_window)
                 )
             )
 
@@ -97,7 +109,8 @@ class DroneTspEnv(gym.Env):
                     lat=lat,
                     node_type=NODE_TYPES.charging_station,
                     package_weight=0.0,
-                    visited_order=0
+                    visited_order=0,
+                    time_window=(0.0, float('inf'))  # không giới hạn thời gian
                 )
             )
 
@@ -167,6 +180,20 @@ class DroneTspEnv(gym.Env):
         if selected_node.node_type == NODE_TYPES.charging_station:
             self.charge_count += 1 # Lưu lại số lần sạc để biết agent có lạm dụng việc sạc hay không.
             self.total_energy_consumption = 0
+
+        # Cập nhật thời gian
+        if self.max_time != -1:
+            self.current_time += distance / self.drone_speed
+
+        # Nếu điểm đến là khách hàng, ta kiểm tra time window:
+        if selected_node.node_type == NODE_TYPES.customer:
+            start, end = selected_node.time_window
+            # Nếu đến quá sớm, drone chờ đến thời điểm cửa mở
+            if self.current_time < start:
+                self.current_time = start
+            # Nếu đến quá muộn (vượt thời gian kết thúc), coi như vi phạm
+            if self.current_time > end:
+                truncated = True  # đánh dấu bị hủy do trễ hạn
 
         terminated, truncated = False, False
         # Hết năng lượng được xem là truncated. Khi năng lượng tiêu thụ vượt quá mức năng lượng tối đa

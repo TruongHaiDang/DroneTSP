@@ -10,7 +10,9 @@ if __name__ == "__main__":
         render_mode='human',
         num_customer_nodes=5,
         num_charge_nodes=1,
-        max_energy=-1
+        package_weight=40,
+        max_energy=-1,
+        max_time=-1
     )
     observation, info = env.reset()
 
