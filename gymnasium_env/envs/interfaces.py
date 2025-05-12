@@ -1,6 +1,5 @@
 from enum import Enum
 from dataclasses import dataclass
-from typing import Optional, Tuple
 
 
 class NODE_TYPES(Enum):
@@ -15,4 +14,5 @@ class Node:
     node_type: NODE_TYPES
     package_weight: float
     visited_order: int
-    time_window: Optional[Tuple[float, float]] = None
+    start_time: float
+    end_time: float

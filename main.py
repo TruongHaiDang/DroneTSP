@@ -11,8 +11,7 @@ if __name__ == "__main__":
         num_customer_nodes=5,
         num_charge_nodes=1,
         package_weight=40,
-        max_energy=-1,
-        max_time=-1
+        max_energy=-1
     )
     observation, info = env.reset()
 
@@ -28,6 +27,6 @@ if __name__ == "__main__":
         print('Reward:', reward)
         print('Terminated:', terminated)
         print('Truncated:', truncated)
-        print('Info')
+        print('Info:')
         pprint(info)
         sleep(0.5)

@@ -16,7 +16,8 @@ class NodeEncoder:
         if not isinstance(node.node_type, NODE_TYPES): raise TypeError("node_type must be NODE_TYPES")
         if not isinstance(node.package_weight, float): raise TypeError("package_weight must be float")
         if not isinstance(node.visited_order, int): raise TypeError("visited_order must be int")
-        if not isinstance(node.time_window, tuple): raise TypeError("time_window must be tuple")
+        if not isinstance(node.start_time, float): raise TypeError("start_time must be float")
+        if not isinstance(node.end_time, float): raise TypeError("end_time must be float")
 
         return np.array([
             node.lon,
@@ -24,8 +25,8 @@ class NodeEncoder:
             node.node_type.value,
             node.package_weight,
             node.visited_order,
-            node.time_window[0], # start time
-            node.time_window[1] # end time
+            node.start_time,
+            node.end_time
         ], dtype=np.float32)
 
     @staticmethod
