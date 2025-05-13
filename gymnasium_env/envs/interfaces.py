@@ -16,3 +16,4 @@ class Node:
     visited_order: int
     start_time: float
     end_time: float
+    visited_time: float

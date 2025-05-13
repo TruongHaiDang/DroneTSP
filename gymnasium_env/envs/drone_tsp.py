@@ -20,8 +20,8 @@ class DroneTspEnv(gym.Env):
         total_num_nodes = 1 + self.num_customer_nodes + self.num_charge_nodes
         self.observation_space = spaces.Dict({
             "nodes": spaces.Box(
-                low=np.array([-180, -90, 0, 0, 0, 0, 0] * total_num_nodes, dtype=np.float32).reshape(total_num_nodes, -1),
-                high=np.array([180, 90, 2, 100, total_num_nodes, float('inf'), float('inf')] * total_num_nodes, dtype=np.float32).reshape(total_num_nodes, -1),
+                low=np.array([-180, -90, 0, 0, 0, 0, 0, 0] * total_num_nodes, dtype=np.float32).reshape(total_num_nodes, -1),
+                high=np.array([180, 90, 2, 100, total_num_nodes, float('inf'), float('inf'), float('inf')] * total_num_nodes, dtype=np.float32).reshape(total_num_nodes, -1),
                 shape=(total_num_nodes, NodeEncoder.get_shape()),
                 dtype=np.float32
             ),
@@ -74,8 +74,9 @@ class DroneTspEnv(gym.Env):
                 node_type=NODE_TYPES.depot,
                 package_weight=0.0,
                 visited_order=1,
-                start_time=0,
-                end_time=float('inf')
+                start_time=0.0,
+                end_time=float('inf'),
+                visited_time=0.0
             )
         ]
 
@@ -85,21 +86,15 @@ class DroneTspEnv(gym.Env):
             # Random vị trí node khách hàng
             lat = float(self.np_random.uniform(LAT_BOTTOM, LAT_TOP))
             lon = float(self.np_random.uniform(LON_LEFT, LON_RIGHT))
-
             # Tính khoảng cách từ depot đến vị trí này (mét)
             distance_meters = geodesic((self.depot[0].lat, self.depot[0].lon), (lat, lon)).meters
-
             # Tính thời gian cần thiết để drone đến được vị trí này (giây)
             time_to_reach = distance_meters / self.drone_speed
-
             # Cho phép khoảng chờ ngẫu nhiên từ 0 đến 10 đơn vị thời gian
             waiting_margin = float(self.np_random.uniform(0, 10))
-
             # Thời gian bắt đầu phục vụ (không thể sớm hơn thời gian drone đến + margin)
             start_time = time_to_reach + waiting_margin
-
-            # Sinh độ dài khung thời gian từ 10 đến 20 đơn vị
-            duration = float(self.np_random.uniform(distance_meters / 2, distance_meters * 2))
+            duration = float(self.np_random.uniform((distance_meters / self.drone_speed) * 2, (distance_meters / self.drone_speed) * 3))
             end_time = start_time + duration
 
             # Thêm node khách hàng vào danh sách
@@ -111,7 +106,8 @@ class DroneTspEnv(gym.Env):
                     package_weight=float(packages_weight[i]),
                     visited_order=0,
                     start_time=start_time,
-                    end_time=end_time
+                    end_time=end_time,
+                    visited_time=0.0
                 )
             )
 
@@ -127,8 +123,9 @@ class DroneTspEnv(gym.Env):
                     node_type=NODE_TYPES.charging_station,
                     package_weight=0.0,
                     visited_order=0,
-                    start_time=0,
-                    end_time=float('inf')
+                    start_time=0.0,
+                    end_time=float('inf'),
+                    visited_time=0.0
                 )
             )
 
@@ -202,8 +199,9 @@ class DroneTspEnv(gym.Env):
             self.total_energy_consumption = 0
 
         # Cập nhật thời gian
-        if self.max_time != -1:
-            self.current_time += distance / self.drone_speed
+        self.current_time += distance / self.drone_speed
+        # Gán visited_time để truy hồi trạng thái thời gian của node đã đi qua.
+        selected_node.visited_time = self.current_time
 
         terminated, truncated = False, False
         # Hết năng lượng được xem là truncated. Khi năng lượng tiêu thụ vượt quá mức năng lượng tối đa

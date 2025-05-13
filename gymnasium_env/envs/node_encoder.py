@@ -3,7 +3,7 @@ from gymnasium_env.envs.interfaces import Node, NODE_TYPES
 
 
 class NodeEncoder:
-    STRUCT = ["lon", "lat", "node_type", "package_weight", "visited_order", "start_time", "end_time"]
+    STRUCT = ["lon", "lat", "node_type", "package_weight", "visited_order", "start_time", "end_time", "visited_time"]
 
     @staticmethod
     def encode(node: Node) -> np.ndarray:
@@ -18,6 +18,7 @@ class NodeEncoder:
         if not isinstance(node.visited_order, int): raise TypeError("visited_order must be int")
         if not isinstance(node.start_time, float): raise TypeError("start_time must be float")
         if not isinstance(node.end_time, float): raise TypeError("end_time must be float")
+        if not isinstance(node.visited_time, float): raise TypeError("visited_time must be float")
 
         return np.array([
             node.lon,
@@ -26,7 +27,8 @@ class NodeEncoder:
             node.package_weight,
             node.visited_order,
             node.start_time,
-            node.end_time
+            node.end_time,
+            node.visited_time
         ], dtype=np.float32)
 
     @staticmethod
