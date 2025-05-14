@@ -16,7 +16,7 @@ def visualize_time_windows(observation):
             continue
 
         if visited_order == 0:
-            status = "\033[90m───\033[0m"
+            status = "\033[90m─────\033[0m"
             print(f"{idx:<6} | {start_time:<12.5f} | {end_time:<12.5f} | {'-':<13} | {status}")
         else:
             if visited_time < start_time:

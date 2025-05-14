@@ -4,6 +4,7 @@ import numpy as np
 from gymnasium_env.envs.node_encoder import NodeEncoder
 from gymnasium_env.envs.interfaces import NODE_TYPES, Node
 from gymnasium_env.envs.utils import calc_energy_consumption, generate_packages_weight
+from gymnasium_env.envs.utils import total_distance_of_a_random_route
 from geopy.distance import geodesic
 from gymnasium_env.envs.folium_exporter import export_to_folium
 
@@ -86,16 +87,6 @@ class DroneTspEnv(gym.Env):
             # Random vị trí node khách hàng
             lat = float(self.np_random.uniform(LAT_BOTTOM, LAT_TOP))
             lon = float(self.np_random.uniform(LON_LEFT, LON_RIGHT))
-            # Tính khoảng cách từ depot đến vị trí này (mét)
-            distance_meters = geodesic((self.depot[0].lat, self.depot[0].lon), (lat, lon)).meters
-            # Tính thời gian cần thiết để drone đến được vị trí này (giây)
-            time_to_reach = distance_meters / self.drone_speed
-            # Cho phép khoảng chờ ngẫu nhiên từ 0 đến 10 đơn vị thời gian
-            waiting_margin = float(self.np_random.uniform(0, 10))
-            # Thời gian bắt đầu phục vụ (không thể sớm hơn thời gian drone đến + margin)
-            start_time = time_to_reach + waiting_margin
-            duration = float(self.np_random.uniform((distance_meters / self.drone_speed) * 2, (distance_meters / self.drone_speed) * 3))
-            end_time = start_time + duration
 
             # Thêm node khách hàng vào danh sách
             self.customer_nodes.append(
@@ -105,8 +96,8 @@ class DroneTspEnv(gym.Env):
                     node_type=NODE_TYPES.customer,
                     package_weight=float(packages_weight[i]),
                     visited_order=0,
-                    start_time=start_time,
-                    end_time=end_time,
+                    start_time=0.0,
+                    end_time=0.0,
                     visited_time=0.0
                 )
             )
@@ -128,6 +119,30 @@ class DroneTspEnv(gym.Env):
                     visited_time=0.0
                 )
             )
+
+        # === Thiết lập khung thời gian cho các node khách hàng một cách tối ưu hơn ===
+        random_total_distance = total_distance_of_a_random_route(self.customer_nodes)
+        total_time = random_total_distance / self.drone_speed
+
+        RAND_POS_MARGIN = 0.3
+        MIN_END_TIME_RATIO = 0.1
+        MAX_END_TIME_RATIO = 0.5
+
+        for node in self.customer_nodes:
+            # Chọn vị trí bắt đầu ngẫu nhiên trong khoảng [0, 1 - RAND_POS_MARGIN]
+            rand_start_ratio = self.np_random.uniform(0, 1 - RAND_POS_MARGIN)
+            # Tính thời gian bắt đầu trong khoảng [rand_start_ratio * total_time, (rand_start_ratio + RAND_POS_MARGIN) * total_time]
+            start_time = float(self.np_random.uniform(
+                rand_start_ratio * total_time,
+                (rand_start_ratio + RAND_POS_MARGIN) * total_time
+            ))
+            # end_time là start_time cộng thêm một khoảng ngẫu nhiên (10% - 50% tổng thời gian)
+            end_time = start_time + float(self.np_random.uniform(
+                MIN_END_TIME_RATIO * total_time,
+                MAX_END_TIME_RATIO * total_time
+            ))
+            node.start_time = start_time
+            node.end_time = end_time
 
         # Gộp tất cả các node vào danh sách all_nodes
         self.all_nodes = self.depot + self.customer_nodes + self.charge_nodes

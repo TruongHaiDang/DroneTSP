@@ -1,4 +1,5 @@
 import random
+from geopy.distance import geodesic
 
 
 def generate_packages_weight(max_weight: float, total_packages: int):
@@ -54,3 +55,20 @@ def calc_energy_consumption(gij: float):
     lambda_coef = (gravity ** 3) / (2 * wind_fluid_density * motor_area * motor_number)
 
     return (total_mass ** 1.5) * lambda_coef
+
+def total_distance_of_a_random_route(nodes):
+    """
+    Tính tổng khoảng cách đi qua tất cả các node trong danh sách (thứ tự giữ nguyên).
+    Tham số:
+        nodes: list các node (phải có thuộc tính lat, lon)
+    Kết quả:
+        Tổng khoảng cách (mét)
+    """
+    if len(nodes) < 2:
+        return 0.0
+    total_distance = 0.0
+    for i in range(len(nodes) - 1):
+        node_a = nodes[i]
+        node_b = nodes[i + 1]
+        total_distance += geodesic((node_a.lat, node_a.lon), (node_b.lat, node_b.lon)).meters
+    return total_distance

@@ -21,7 +21,7 @@ if __name__ == "__main__":
         action = env.unwrapped._sample()
         observation, reward, terminated, truncated, info = env.step(action=action)
         done = terminated or truncated
-        print('='*80, 'Action:', action, '='*80)
+        print('='*50, 'Action:', action, '='*50)
         visualize_nodes_status(observation)
         visualize_time_windows(observation)
         visualize_energy_status(observation)
