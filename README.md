@@ -57,6 +57,7 @@ pip install -e .
     Mỗi node được mã hóa thành `[lon, lat, node_type, package_weight, visited_order]`.
   - `total_distance`: Tổng quãng đường đã đi.
   - `energy_consumption`: Năng lượng đã tiêu thụ.
+  - `time`: Thời gian đã trôi qua (hoặc tổng thời gian di chuyển, hoặc thời gian hiện tại, tuỳ theo cách bạn cài đặt).
 
 - **Phần thưởng**:
 
@@ -78,7 +79,7 @@ pip install -e .
   - Mô phỏng thực tế với bản đồ địa lý khu vực TP.HCM.
   - Các node được tạo ngẫu nhiên trong khoảng tọa độ thực.
   - Trọng lượng hàng được sinh để tổng không vượt quá sức chở drone (40kg).
-  - Mức năng lượng giới hạn có thể tùy chỉnh hoặc vô hạn (`max_energy = -1`).
+  - Mức năng lượng và thời gian giới hạn có thể tùy chỉnh hoặc vô hạn (`max_energy = -1`, `max_time = -1`).
   - Môi trường phù hợp để thử nghiệm thuật toán: Q-learning, GNN, A3C, PPO,...
 
 - **Chế độ hiển thị**:
@@ -96,7 +97,8 @@ pip install -e .
       render_mode="human",
       num_customer_nodes=5,
       num_charge_nodes=1,
-      max_energy=50000.0  # hoặc -1 để bỏ giới hạn năng lượng
+      max_energy=50000.0,  # hoặc -1 để bỏ giới hạn năng lượng
+      max_time=-1  # hoặc -1 để bỏ giới hạn thời gian
   )
 
   observation, info = env.reset()
