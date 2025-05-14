@@ -158,7 +158,9 @@ class DroneTspEnv(gym.Env):
         }
 
     def _get_info(self):
-        return {}
+        return {
+            "drone_speed": self.drone_speed
+        }
 
     def _sample(self) -> int:
         """
