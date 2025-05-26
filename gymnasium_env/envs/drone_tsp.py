@@ -47,6 +47,8 @@ class DroneTspEnv(gym.Env):
         self.charge_count = 0
         # Đếm thời gian
         self.current_time = 0.0
+        # Cộng dồn số thời gian trễ
+        self.late_arrivale_time = 0.0
         # Tốc độ bay của drone, lấy theo DJI Fly-Cart 30
         self.drone_speed = 15 * 3.6 # km/h
 
@@ -228,31 +230,18 @@ class DroneTspEnv(gym.Env):
         # Luôn bắt đầu từ 0, TSP phải quay về điểm bắt đầu thì mới được xem là hoàn thành.
         if action == 0:
             terminated = True
-        
-        reward = 0
-        # Chỉ cung cấp reward khi hoàn thành lộ trình.
-        DIST_PENALTY = 1.0
-        ENERGY_PENALTY = 1.0
-        CHARGE_PENALTY = 10.0
-        DEADLY_PENALTY = 1000.0
-        TIME_PENALTY = 1.0
 
         if selected_node.node_type == NODE_TYPES.customer:
             if self.current_time < selected_node.start_time:
                 self.current_time = selected_node.start_time
             if self.current_time > selected_node.end_time:
-                reward -= TIME_PENALTY * (self.current_time - selected_node.end_time)
+                self.late_arrivale_time += self.current_time - selected_node.end_time
 
-        if terminated:
-            reward = -DIST_PENALTY * self.total_distance \
-                    -ENERGY_PENALTY * self.total_energy_consumption \
-                    -CHARGE_PENALTY * self.charge_count
-
-        elif truncated:
-            reward = -DEADLY_PENALTY \
-                    -DIST_PENALTY * self.total_distance \
-                    -ENERGY_PENALTY * self.total_energy_consumption \
-                    -CHARGE_PENALTY * self.charge_count
+        reward = None
+        # Chỉ cung cấp reward khi hoàn thành.
+        if terminated or truncated:
+            # Cung cấp thông tin môi trường để người dùng tự thiết kế reward.
+            reward = (self.total_distance, self.total_energy_consumption, self.charge_count, self.late_arrivale_time)
 
         observation = self._get_obs()
         info = self._get_info()
