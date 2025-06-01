@@ -3,29 +3,43 @@ from geopy.distance import geodesic
 
 
 def generate_packages_weight(max_weight: float, total_packages: int):
+    """
+    Ngẫu nhiên tạo ra một danh sách khối lượng các gói hàng sao cho tổng khối lượng xấp xỉ max_weight.
+    Mỗi khối lượng gói hàng là số nguyên không âm, và số lượng gói là total_packages.
+
+    Tham số:
+        max_weight (float): Tổng khối lượng tối đa cần phân phối cho các gói hàng.
+        total_packages (int): Số lượng gói hàng cần tạo khối lượng.
+
+    Trả về:
+        list[int]: Danh sách các số nguyên đại diện cho khối lượng từng gói hàng, tổng lại bằng max_weight.
+    """
+    if max_weight < 0 or total_packages < 0:
+        raise ValueError("Max weight and total packages can't be negative.")
+    
     if max_weight == 0 or total_packages == 0:
         return []
 
     result = []
 
-    # Tạo danh sách điểm cắt
+    # Tạo danh sách điểm cắt ngẫu nhiên đã sắp xếp để chia khối lượng
     cut_points = sorted([random.randint(0, max_weight) for _ in range(total_packages - 1)])
     cut_points = [0] + cut_points + [max_weight]
 
-    # Tính độ dài giữa các điểm cắt
+    # Tính hiệu giữa các điểm cắt liên tiếp để lấy khối lượng từng gói
     result = [round(cut_points[i+1] - cut_points[i]) for i in range(total_packages)]
 
-    # Điều chỉnh nết tổng vượt quá max_weight
+    # Điều chỉnh nếu tổng khối lượng chưa đúng max_weight
     diff = sum(result) - max_weight
     while diff != 0:
         for i in range(len(result)):
             if diff == 0:
                 break
             if diff > 0 and result[i] > 0:
-                result[i] -= 1
+                result[i] -= 1  # Giảm khối lượng nếu tổng vượt quá max_weight
                 diff -= 1
             elif diff < 0:
-                result[i] += 1
+                result[i] += 1  # Tăng khối lượng nếu tổng nhỏ hơn max_weight
                 diff += 1
 
     return result
@@ -54,7 +68,8 @@ def calc_energy_consumption(gij: float):
     total_mass = drone_frame_weight + battery_weight + gij
     lambda_coef = (gravity ** 3) / (2 * wind_fluid_density * motor_area * motor_number)
 
-    return (total_mass ** 1.5) * lambda_coef
+    energy_consumption = (total_mass ** 1.5) * lambda_coef
+    return round(energy_consumption, 2)
 
 def total_distance_of_a_random_route(nodes):
     """
@@ -71,4 +86,4 @@ def total_distance_of_a_random_route(nodes):
         node_a = nodes[i]
         node_b = nodes[i + 1]
         total_distance += geodesic((node_a.lat, node_a.lon), (node_b.lat, node_b.lon)).meters
-    return total_distance
+    return round(total_distance, 2)
