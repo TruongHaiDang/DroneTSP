@@ -51,6 +51,9 @@ class DroneTspEnv(gym.Env):
         self.late_arrivale_time = 0.0
         # Tốc độ bay của drone, lấy theo DJI Fly-Cart 30
         self.drone_speed = 15 * 3.6 # km/h
+        # Lưu trữ giá trị distance và năng lượng giữa các cạnh để tạo input graph
+        self.distance_histories = []
+        self.energy_consumption_histories = []
 
         self.__init_nodes()
 
@@ -162,7 +165,9 @@ class DroneTspEnv(gym.Env):
     def _get_info(self):
         return {
             "drone_speed": self.drone_speed,
-            "customers": self.customer_nodes
+            "customers": self.customer_nodes,
+            "distance_histories": self.distance_histories,
+            "energy_consumption_histories": self.energy_consumption_histories
         }
 
     def _sample(self) -> int:
@@ -188,6 +193,8 @@ class DroneTspEnv(gym.Env):
         self.remain_packages_weight = 40
         self.current_time = 0.0
         self.charge_count = 0
+        self.distance_histories = []
+        self.energy_consumption_histories = []
 
         observation = self._get_obs()
         info = self._get_info()
@@ -208,9 +215,11 @@ class DroneTspEnv(gym.Env):
             selected_node.visited_order = order + 1 # Những node đã đi qua cộng với vị trí đang xét.
 
         distance = geodesic((prev_node.lat, prev_node.lon), (selected_node.lat, selected_node.lon)).meters
+        self.distance_histories.append(distance)
         self.remain_packages_weight -= selected_node.package_weight
         self.total_distance += distance
         energy_consumption = calc_energy_consumption(gij=self.remain_packages_weight)
+        self.energy_consumption_histories.append(energy_consumption)
         self.total_energy_consumption += energy_consumption
 
         # Nếu node này là trạm sạc thì reset mức năng lượng đã tiêu thụ
