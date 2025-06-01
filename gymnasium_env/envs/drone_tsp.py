@@ -1,7 +1,7 @@
 import gymnasium as gym
 from gymnasium import spaces
 import numpy as np
-from gymnasium_env.envs.node_encoder import NodeEncoder
+from gymnasium_env.envs.node_transformer import NodeTransformer
 from gymnasium_env.envs.interfaces import NODE_TYPES, Node
 from gymnasium_env.envs.utils import calc_energy_consumption, generate_packages_weight
 from gymnasium_env.envs.utils import total_distance_of_a_random_route
@@ -23,7 +23,7 @@ class DroneTspEnv(gym.Env):
             "nodes": spaces.Box(
                 low=np.array([-180, -90, 0, 0, 0, 0, 0, 0] * total_num_nodes, dtype=np.float32).reshape(total_num_nodes, -1),
                 high=np.array([180, 90, 2, 100, total_num_nodes, float('inf'), float('inf'), float('inf')] * total_num_nodes, dtype=np.float32).reshape(total_num_nodes, -1),
-                shape=(total_num_nodes, NodeEncoder.get_shape()),
+                shape=(total_num_nodes, NodeTransformer.get_shape()),
                 dtype=np.float32
             ),
             "total_distance": spaces.Box(low=0, high=np.inf, shape=(1,), dtype=np.float32),
@@ -143,14 +143,14 @@ class DroneTspEnv(gym.Env):
                 MIN_END_TIME_RATIO * total_time,
                 MAX_END_TIME_RATIO * total_time
             ))
-            node.start_time = start_time
-            node.end_time = end_time
+            node.start_time = round(start_time, 2)
+            node.end_time = round(end_time, 2)
 
         # Gộp tất cả các node vào danh sách all_nodes
         self.all_nodes = self.depot + self.customer_nodes + self.charge_nodes
 
     def _get_obs(self):
-        nodes_array = np.array([NodeEncoder.encode(node) for node in self.all_nodes], dtype=np.float32)
+        nodes_array = np.array([NodeTransformer.encode(node) for node in self.all_nodes], dtype=np.float32)
         return {
             "nodes": nodes_array,
             "total_distance": np.array([self.total_distance], dtype=np.float32),
@@ -219,7 +219,7 @@ class DroneTspEnv(gym.Env):
             self.total_energy_consumption = 0
 
         # Cập nhật thời gian
-        self.current_time += distance / self.drone_speed
+        self.current_time += round(distance / self.drone_speed, 2)
         # Gán visited_time để truy hồi trạng thái thời gian của node đã đi qua.
         selected_node.visited_time = self.current_time
 
