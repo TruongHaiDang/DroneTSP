@@ -10,9 +10,25 @@ from gymnasium_env.envs.folium_exporter import export_to_folium
 
 
 class DroneTspEnv(gym.Env):
+    """Mô phỏng môi trường drone giao hàng dựa trên TSP.
+
+    Args:
+        gym (gym.Env): Kế thừa lớp Env của gymnasium
+
+    Returns:
+    """
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
 
     def __init__(self, render_mode=None, num_customer_nodes: int = 5, num_charge_nodes: int=1, package_weight: float=40, max_energy: float=-1.0):
+        """Constructor của class
+
+        Args:
+            render_mode (str, optional): Loại hiển thị. Defaults to None.
+            num_customer_nodes (int, optional): Số lượng node nhận hàng. Defaults to 5.
+            num_charge_nodes (int, optional): Số lượng trạm sạc. Defaults to 1.
+            package_weight (float, optional): Tổng khối lượng hàng. Defaults to 40.
+            max_energy (float, optional): Tổng năng lượng của drone. Defaults to -1.0.
+        """
         self.num_customer_nodes = num_customer_nodes
         self.num_charge_nodes = num_charge_nodes
         self.max_energy = max_energy # Nếu energy_limit = -1 nghĩa là không quan tâm đến năng lượng.
@@ -61,6 +77,8 @@ class DroneTspEnv(gym.Env):
         self.render_mode = render_mode
 
     def __init_nodes(self):
+        """Khởi tạo danh sách node
+        """
         # Giới hạn vĩ độ và kinh độ cho khu vực TP.HCM
         LAT_BOTTOM, LAT_TOP = 10.75, 10.80
         LON_LEFT, LON_RIGHT = 106.65, 106.72
@@ -153,6 +171,11 @@ class DroneTspEnv(gym.Env):
         self.all_nodes = self.depot + self.customer_nodes + self.charge_nodes
 
     def _get_obs(self):
+        """Định nghĩa observation của môi trường
+
+        Returns:
+            obs: Observation
+        """
         nodes_array = np.array([NodeTransformer.encode(node) for node in self.all_nodes], dtype=np.float32)
         return {
             "nodes": nodes_array,
@@ -163,6 +186,11 @@ class DroneTspEnv(gym.Env):
         }
 
     def _get_info(self):
+        """Cung cấp thông tin bổ sung của môi trường
+
+        Returns:
+            infor: Thông tin bổ sung của môi trường
+        """
         return {
             "drone_speed": self.drone_speed,
             "customers": self.customer_nodes,
@@ -183,6 +211,16 @@ class DroneTspEnv(gym.Env):
         return np.random.choice(unvisited_indices)
 
     def reset(self, seed=None, options=None):
+        """Reset môi trường
+
+        Args:
+            seed (_type_, optional): _description_. Defaults to None.
+            options (_type_, optional): _description_. Defaults to None.
+
+        Returns:
+            obs: Observation của môi trường
+            info: Thông tin phụ của môi trường
+        """
         # We need the following line to seed self.np_random
         super().reset(seed=seed)
 
@@ -205,6 +243,19 @@ class DroneTspEnv(gym.Env):
         return observation, info
 
     def step(self, action):
+        """
+        Thực hiện một bước trong môi trường với hành động được cung cấp.
+
+        Args:
+            action (int): Chỉ số của node sẽ được ghé thăm tiếp theo trong danh sách all_nodes. Có thể là node khách hàng, trạm sạc hoặc depot (chỉ số 0).
+
+        Returns:
+            observation (dict): Quan sát hiện tại của môi trường sau khi thực hiện hành động.
+            reward (tuple hoặc None): Bộ giá trị thưởng (tổng quãng đường, tổng năng lượng tiêu thụ, số lần sạc, tổng thời gian trễ) nếu kết thúc episode, ngược lại là None.
+            terminated (bool): True nếu episode kết thúc do quay về depot, ngược lại là False.
+            truncated (bool): True nếu episode kết thúc do vượt quá giới hạn năng lượng, ngược lại là False.
+            info (dict): Thông tin bổ sung về trạng thái môi trường.
+        """
         # Action là index của node trong danh sách tất cả node bao gồm khách hàng và trạm sạc.
         prev_node = self.all_nodes[self.prev_position]
         selected_node = self.all_nodes[action]
@@ -265,10 +316,22 @@ class DroneTspEnv(gym.Env):
         return observation, reward, terminated, truncated, info
 
     def render(self):
+        """
+        Hiển thị môi trường theo chế độ render_mode đã chọn.
+
+        Nếu render_mode là 'rgb_array', trả về frame đã render dưới dạng mảng.
+        Nếu render_mode là 'human', hiển thị trực quan môi trường (xử lý trong _render_frame).
+        """
         if self.render_mode == "rgb_array":
             return self._render_frame()
 
     def _render_frame(self):
+        """
+        Phương thức nội bộ để hiển thị trạng thái hiện tại của môi trường.
+
+        Sinh bản đồ HTML trực quan hóa đường đi và các node đã ghé thăm bằng folium,
+        và lưu vào 'render/index.html'.
+        """
         # Tạo danh sách các node đã được ghé thăm theo thứ tự
         visited_nodes = sorted(
             [(idx, n) for idx, n in enumerate(self.all_nodes) if n.visited_order > 0],
