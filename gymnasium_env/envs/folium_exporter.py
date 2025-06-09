@@ -6,7 +6,15 @@ import os
 
 def export_to_folium(nodes: list, path_indices: list, file_path="render/index.html"):
     """
-    Tạo bản đồ Folium từ danh sách node và đường đi đã chọn.
+    Xuất bản đồ các node và đường đi của drone ra file HTML sử dụng thư viện folium.
+
+    Args:
+        nodes (list): Danh sách các node (depot, khách hàng, trạm sạc) cần hiển thị trên bản đồ.
+        path_indices (list): Danh sách chỉ số các node theo thứ tự đã đi qua để vẽ đường đi.
+        file_path (str, optional): Đường dẫn file HTML sẽ lưu bản đồ. Mặc định là "render/index.html".
+
+    Raises:
+        ValueError: Nếu không có danh sách node hoặc path.
     """
     # Tạo thư mục cha nếu chưa có
     os.makedirs(os.path.dirname(file_path), exist_ok=True)
