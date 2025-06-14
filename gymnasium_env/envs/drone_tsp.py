@@ -19,7 +19,7 @@ class DroneTspEnv(gym.Env):
     """
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
 
-    def __init__(self, render_mode=None, num_customer_nodes: int = 5, num_charge_nodes: int=1, package_weight: float=40, max_energy: float=-1.0):
+    def __init__(self, render_mode=None, num_customer_nodes: int = 5, num_charge_nodes: int=1, package_weight: float=40, max_energy: float=-1.0, max_charge_times: int=-1):
         """Constructor của class
 
         Args:
@@ -28,10 +28,12 @@ class DroneTspEnv(gym.Env):
             num_charge_nodes (int, optional): Số lượng trạm sạc. Defaults to 1.
             package_weight (float, optional): Tổng khối lượng hàng. Defaults to 40.
             max_energy (float, optional): Tổng năng lượng của drone. Defaults to -1.0.
+            max_charge_times (int, optional): Số lần sạc tối đa của drone. Giá trị âm để bỏ giới hạn.
         """
         self.num_customer_nodes = num_customer_nodes
         self.num_charge_nodes = num_charge_nodes
         self.max_energy = max_energy # Nếu energy_limit = -1 nghĩa là không quan tâm đến năng lượng.
+        self.max_charge_times = max_charge_times
 
         # Số 1 là node depot
         total_num_nodes = 1 + self.num_customer_nodes + self.num_charge_nodes
@@ -287,6 +289,8 @@ class DroneTspEnv(gym.Env):
         # Hết năng lượng được xem là truncated. Khi năng lượng tiêu thụ vượt quá mức năng lượng tối đa
         # thì được xem là hết năng lượng.
         if self.max_energy != -1 and self.total_energy_consumption >= self.max_energy:
+            truncated = True
+        if self.max_charge_times != -1 and self.charge_count > self.max_charge_times:
             truncated = True
         # Luôn bắt đầu từ 0, TSP phải quay về điểm bắt đầu thì mới được xem là hoàn thành.
         if action == 0:
