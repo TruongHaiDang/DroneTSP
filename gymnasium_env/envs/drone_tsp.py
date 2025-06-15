@@ -302,7 +302,8 @@ class DroneTspEnv(gym.Env):
             if self.current_time > selected_node.end_time:
                 self.late_arrivale_time += self.current_time - selected_node.end_time
 
-        reward = None
+        # Cung cấp dữ liệu tại mỗi bước cho trường hợp muốn Sparse Reward
+        reward = (distance, energy_consumption, self.charge_count, self.late_arrivale_time)
         # Chỉ cung cấp reward khi hoàn thành.
         if terminated or truncated:
             # Cung cấp thông tin môi trường để người dùng tự thiết kế reward.
