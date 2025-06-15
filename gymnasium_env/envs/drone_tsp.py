@@ -73,8 +73,6 @@ class DroneTspEnv(gym.Env):
         self.distance_histories = []
         self.energy_consumption_histories = []
 
-        self.__init_nodes()
-
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode = render_mode
 
@@ -269,7 +267,8 @@ class DroneTspEnv(gym.Env):
 
         distance = geodesic((prev_node.lat, prev_node.lon), (selected_node.lat, selected_node.lon)).meters
         self.distance_histories.append(distance)
-        self.remain_packages_weight -= selected_node.package_weight
+        if action > 0 and selected_node.node_type != NODE_TYPES.charging_station:
+            self.remain_packages_weight -= selected_node.package_weight
         self.total_distance += distance
         energy_consumption = calc_energy_consumption(gij=self.remain_packages_weight)
         self.energy_consumption_histories.append(energy_consumption)
