@@ -60,7 +60,8 @@ class DroneTspEnv(gym.Env):
         # Lưu index của node trước đó
         self.prev_position = 0
         # Khối lượng hàng drone đang mang
-        self.remain_packages_weight = package_weight
+        self.max_packages_weight = package_weight
+        self.remain_packages_weight = self.max_packages_weight
         # Đếm số lần sạc
         self.charge_count = 0
         # Đếm thời gian
@@ -224,15 +225,15 @@ class DroneTspEnv(gym.Env):
         # We need the following line to seed self.np_random
         super().reset(seed=seed)
 
-        self.__init_nodes()
         self.total_distance = 0
         self.total_energy_consumption = 0
         self.prev_position = 0
-        self.remain_packages_weight = 40
+        self.remain_packages_weight = self.max_packages_weight
         self.current_time = 0.0
         self.charge_count = 0
         self.distance_histories = []
         self.energy_consumption_histories = []
+        self.__init_nodes()
 
         observation = self._get_obs()
         info = self._get_info()
