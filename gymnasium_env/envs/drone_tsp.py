@@ -304,10 +304,6 @@ class DroneTspEnv(gym.Env):
 
         # Cung cấp dữ liệu tại mỗi bước cho trường hợp muốn Sparse Reward
         reward = (distance, energy_consumption, self.charge_count, self.late_arrivale_time)
-        # Chỉ cung cấp reward khi hoàn thành.
-        if terminated or truncated:
-            # Cung cấp thông tin môi trường để người dùng tự thiết kế reward.
-            reward = (self.total_distance, self.total_energy_consumption, self.charge_count, self.late_arrivale_time)
 
         observation = self._get_obs()
         info = self._get_info()
