@@ -196,7 +196,10 @@ class DroneTspEnv(gym.Env):
             "drone_speed": self.drone_speed,
             "customers": self.customer_nodes,
             "distance_histories": self.distance_histories,
-            "energy_consumption_histories": self.energy_consumption_histories
+            "energy_consumption_histories": self.energy_consumption_histories,
+            "charge_count": self.charge_count,
+            "late_arrivale_time": self.late_arrivale_time,
+            "energy_consumption": self.total_energy_consumption
         }
 
     def _sample(self) -> int:
@@ -303,7 +306,7 @@ class DroneTspEnv(gym.Env):
                 self.late_arrivale_time += self.current_time - selected_node.end_time
 
         # Cung cấp dữ liệu tại mỗi bước cho trường hợp muốn Sparse Reward
-        reward = (distance, energy_consumption, self.charge_count, self.late_arrivale_time)
+        reward = -distance
 
         observation = self._get_obs()
         info = self._get_info()
