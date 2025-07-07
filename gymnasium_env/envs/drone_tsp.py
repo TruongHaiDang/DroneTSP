@@ -305,9 +305,6 @@ class DroneTspEnv(gym.Env):
             if self.current_time > selected_node.end_time:
                 self.late_arrivale_time += self.current_time - selected_node.end_time
 
-        # Cung cấp dữ liệu tại mỗi bước cho trường hợp muốn Sparse Reward
-        reward = -distance
-
         observation = self._get_obs()
         info = self._get_info()
 
@@ -317,7 +314,7 @@ class DroneTspEnv(gym.Env):
         if self.render_mode == "human":
             self._render_frame()
 
-        return observation, reward, terminated, truncated, info
+        return observation, distance, terminated, truncated, info
 
     def render(self):
         """
