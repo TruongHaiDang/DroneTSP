@@ -214,7 +214,7 @@ class DroneTspEnv(gym.Env):
             return 0 # Không còn node nào để đi thì trả về vị trí đầu tiên là depot
         return np.random.choice(unvisited_indices)
 
-    def reset(self, seed=None, options=None, new_coordinates=False):
+    def reset(self, seed=None, options=None):
         """Reset môi trường
 
         Args:
@@ -227,6 +227,10 @@ class DroneTspEnv(gym.Env):
         """
         # We need the following line to seed self.np_random
         super().reset(seed=seed)
+
+        if options is None:
+            options = {}
+        new_coordinates: bool = bool(options.get("new_coordinates", True))
 
         self.total_distance = 0
         self.total_energy_consumption = 0
