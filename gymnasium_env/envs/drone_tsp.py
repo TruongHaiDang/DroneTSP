@@ -214,7 +214,7 @@ class DroneTspEnv(gym.Env):
             return 0 # Không còn node nào để đi thì trả về vị trí đầu tiên là depot
         return np.random.choice(unvisited_indices)
 
-    def reset(self, seed=None, options=None):
+    def reset(self, seed=None, options=None, new_coordinates=False):
         """Reset môi trường
 
         Args:
@@ -236,7 +236,16 @@ class DroneTspEnv(gym.Env):
         self.charge_count = 0
         self.distance_histories = []
         self.energy_consumption_histories = []
-        self.__init_nodes()
+        if new_coordinates == True:
+            self.__init_nodes()
+        else:
+            for node in self.all_nodes:
+                if node.node_type == NODE_TYPES.depot:
+                    node.visited_order = 1
+                    node.visited_time = 0.0
+                elif node.node_type == NODE_TYPES.customer or node.node_type == NODE_TYPES.charging_station:
+                    node.visited_order = 0
+                    node.visited_time = 0.0
 
         observation = self._get_obs()
         info = self._get_info()
