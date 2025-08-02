@@ -91,3 +91,7 @@ def total_distance_of_a_random_route(nodes):
         node_b = nodes[i + 1]
         total_distance += geodesic((node_a.lat, node_a.lon), (node_b.lat, node_b.lon)).meters
     return round(total_distance, 2)
+
+def calc_distance(node_a, node_b):
+    distance = geodesic((node_a[1], node_a[0]), (node_b[1], node_b[0])).meters
+    return round(distance, 2)
