@@ -44,13 +44,14 @@ def generate_packages_weight(max_weight: float, total_packages: int):
 
     return result
 
-def calc_energy_consumption(gij: float):
+def calc_energy_consumption(gij: float, distanceij: float):
     """Tính năng lượng tiêu thụ, hàm này theo công thức trong bài báo 
     Trajectory Optimization for Drone Logistics
     Delivery via Attention-Based Pointer Network
 
     Args:
         gij (float): Khối lượng hàng drone phải mang giữa hai điểm i và j
+        distanceij (float): Khoảng cách giữa 2 điểm i và j 
 
     Returns:
         float: Năng lượng tiêu thụ
@@ -68,7 +69,10 @@ def calc_energy_consumption(gij: float):
     total_mass = drone_frame_weight + battery_weight + gij
     lambda_coef = (gravity ** 3) / (2 * wind_fluid_density * motor_area * motor_number)
 
-    energy_consumption = (total_mass ** 1.5) * lambda_coef
+    gij_energy_consumption = (total_mass ** 1.5) * lambda_coef
+    gij_energy_consumption /= 1_000.0
+    distanceij_energy_consumption = distanceij / 10.0
+    energy_consumption = gij_energy_consumption * distanceij_energy_consumption
     return round(energy_consumption, 2)
 
 def total_distance_of_a_random_route(nodes):

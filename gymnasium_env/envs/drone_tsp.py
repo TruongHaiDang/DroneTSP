@@ -288,7 +288,7 @@ class DroneTspEnv(gym.Env):
         if action > 0 and selected_node.node_type != NODE_TYPES.charging_station:
             self.remain_packages_weight -= selected_node.package_weight
         self.total_distance += distance
-        energy_consumption = calc_energy_consumption(gij=self.remain_packages_weight)
+        energy_consumption = calc_energy_consumption(gij=self.remain_packages_weight, distanceij=distance)
         self.energy_consumption_histories.append(energy_consumption)
         self.total_energy_consumption += energy_consumption
 
