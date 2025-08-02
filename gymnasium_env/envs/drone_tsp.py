@@ -200,7 +200,8 @@ class DroneTspEnv(gym.Env):
             "charge_count": self.charge_count,
             "late_arrivale_time": self.late_arrivale_time,
             "energy_consumption": self.total_energy_consumption,
-            "remain_packages_weight": self.remain_packages_weight
+            "remain_packages_weight": self.remain_packages_weight,
+            "max_energy": self.max_energy
         }
 
     def _sample(self) -> int:
