@@ -10,7 +10,7 @@ class NodeTransformer:
     Lớp tiện ích để mã hóa (encode) và giải mã (decode) đối tượng Node thành mảng numpy và ngược lại.
     Dùng cho việc xử lý dữ liệu trong môi trường học tăng cường.
     """
-    STRUCT = ["lon", "lat", "node_type", "package_weight", "visited_order", "start_time", "end_time", "visited_time"]
+    STRUCT = ["lon", "lat", "node_type", "package_weight", "visited_order"]
 
     @staticmethod
     def encode(node: Node) -> np.ndarray:
@@ -32,9 +32,6 @@ class NodeTransformer:
             node.node_type.value,
             node.package_weight,
             node.visited_order,
-            node.start_time,
-            node.end_time,
-            node.visited_time
         ], dtype=np.float32)
 
     @staticmethod
@@ -60,9 +57,6 @@ class NodeTransformer:
             node_type=NODE_TYPES(int(arr[2])),
             package_weight=float(arr[3]),
             visited_order=int(arr[4]),
-            start_time=float(arr[5]),
-            end_time=float(arr[6]),
-            visited_time=float(arr[7])
         )
 
     @staticmethod

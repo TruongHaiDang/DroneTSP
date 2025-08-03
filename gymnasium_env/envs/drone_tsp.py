@@ -34,25 +34,22 @@ class DroneTspEnv(gym.Env):
         self.num_charge_nodes = num_charge_nodes
         self.max_energy = max_energy # Nếu energy_limit = -1 nghĩa là không quan tâm đến năng lượng.
         self.max_charge_times = max_charge_times
-
         # Số 1 là node depot
         total_num_nodes = 1 + self.num_customer_nodes + self.num_charge_nodes
         self.observation_space = spaces.Dict({
             "nodes": spaces.Box(
-                low=np.array([-180, -90, 0, 0, 0, 0, 0, 0] * total_num_nodes, dtype=np.float32).reshape(total_num_nodes, -1),
-                high=np.array([180, 90, 2, 100, total_num_nodes, float('inf'), float('inf'), float('inf')] * total_num_nodes, dtype=np.float32).reshape(total_num_nodes, -1),
+                low=np.array([-180, -90, 0, 0, 0] * total_num_nodes, dtype=np.float32).reshape(total_num_nodes, -1),
+                high=np.array([180, 90, 2, 100, total_num_nodes] * total_num_nodes, dtype=np.float32).reshape(total_num_nodes, -1),
                 shape=(total_num_nodes, NodeTransformer.get_shape()),
                 dtype=np.float32
             ),
             "total_distance": spaces.Box(low=0, high=np.inf, shape=(1,), dtype=np.float32),
             "energy_consumption": spaces.Box(low=0, high=np.inf, shape=(1,), dtype=np.float32),
-            "current_time": spaces.Box(low=0, high=np.inf, shape=(1,), dtype=np.float32),
             "charge_count": spaces.Box(low=0, high=np.inf, shape=(1,), dtype=np.int16)
         })
 
         # Action là index trong danh sách tất cả node.
         self.action_space = spaces.Discrete(n=total_num_nodes, start=0)
-        
         # Tổng khoảng cách đã đi
         self.total_distance = 0
         # Năng lượng tiêu thụ
@@ -64,10 +61,6 @@ class DroneTspEnv(gym.Env):
         self.remain_packages_weight = self.max_packages_weight
         # Đếm số lần sạc
         self.charge_count = 0
-        # Đếm thời gian
-        self.current_time = 0.0
-        # Cộng dồn số thời gian trễ
-        self.late_arrivale_time = 0.0
         # Tốc độ bay của drone, lấy theo DJI Fly-Cart 30
         self.drone_speed = 15 * 3.6 # km/h
         # Lưu trữ giá trị distance và năng lượng giữa các cạnh để tạo input graph
@@ -99,9 +92,6 @@ class DroneTspEnv(gym.Env):
                 node_type=NODE_TYPES.depot,
                 package_weight=0.0,
                 visited_order=1,
-                start_time=0.0,
-                end_time=float('inf'),
-                visited_time=0.0
             )
         ]
 
@@ -120,15 +110,12 @@ class DroneTspEnv(gym.Env):
                     node_type=NODE_TYPES.customer,
                     package_weight=float(packages_weight[i]),
                     visited_order=0,
-                    start_time=0.0,
-                    end_time=0.0,
-                    visited_time=0.0
                 )
             )
 
         # === Tạo node Trạm sạc ===
         self.charge_nodes = []
-        for _ in range(self.num_charge_nodes):
+        for i in range(self.num_charge_nodes):
             lat = float(self.np_random.uniform(LAT_BOTTOM, LAT_TOP))
             lon = float(self.np_random.uniform(LON_LEFT, LON_RIGHT))
             self.charge_nodes.append(
@@ -138,35 +125,8 @@ class DroneTspEnv(gym.Env):
                     node_type=NODE_TYPES.charging_station,
                     package_weight=0.0,
                     visited_order=0,
-                    start_time=0.0,
-                    end_time=float('inf'),
-                    visited_time=0.0
                 )
             )
-
-        # === Thiết lập khung thời gian cho các node khách hàng một cách tối ưu hơn ===
-        random_total_distance = total_distance_of_a_random_route(self.customer_nodes)
-        total_time = random_total_distance / self.drone_speed
-
-        RAND_POS_MARGIN = 0.3
-        MIN_END_TIME_RATIO = 0.1
-        MAX_END_TIME_RATIO = 0.5
-
-        for node in self.customer_nodes:
-            # Chọn vị trí bắt đầu ngẫu nhiên trong khoảng [0, 1 - RAND_POS_MARGIN]
-            rand_start_ratio = self.np_random.uniform(0, 1 - RAND_POS_MARGIN)
-            # Tính thời gian bắt đầu trong khoảng [rand_start_ratio * total_time, (rand_start_ratio + RAND_POS_MARGIN) * total_time]
-            start_time = float(self.np_random.uniform(
-                rand_start_ratio * total_time,
-                (rand_start_ratio + RAND_POS_MARGIN) * total_time
-            ))
-            # end_time là start_time cộng thêm một khoảng ngẫu nhiên (10% - 50% tổng thời gian)
-            end_time = start_time + float(self.np_random.uniform(
-                MIN_END_TIME_RATIO * total_time,
-                MAX_END_TIME_RATIO * total_time
-            ))
-            node.start_time = round(start_time, 2)
-            node.end_time = round(end_time, 2)
 
         # Gộp tất cả các node vào danh sách all_nodes
         self.all_nodes = self.depot + self.customer_nodes + self.charge_nodes
@@ -182,7 +142,6 @@ class DroneTspEnv(gym.Env):
             "nodes": nodes_array,
             "total_distance": np.array([self.total_distance], dtype=np.float32),
             "energy_consumption": np.array([self.total_energy_consumption], dtype=np.float32),
-            "current_time": np.array([self.current_time], dtype=np.float32),
             "charge_count": np.array([self.charge_count], dtype=np.int16)
         }
 
@@ -198,7 +157,6 @@ class DroneTspEnv(gym.Env):
             "distance_histories": self.distance_histories,
             "energy_consumption_histories": self.energy_consumption_histories,
             "charge_count": self.charge_count,
-            "late_arrivale_time": self.late_arrivale_time,
             "energy_consumption": self.total_energy_consumption,
             "remain_packages_weight": self.remain_packages_weight,
             "max_energy": self.max_energy
@@ -238,7 +196,6 @@ class DroneTspEnv(gym.Env):
         self.total_energy_consumption = 0
         self.prev_position = 0
         self.remain_packages_weight = self.max_packages_weight
-        self.current_time = 0.0
         self.charge_count = 0
         self.distance_histories = []
         self.energy_consumption_histories = []
@@ -248,10 +205,8 @@ class DroneTspEnv(gym.Env):
             for node in self.all_nodes:
                 if node.node_type == NODE_TYPES.depot:
                     node.visited_order = 1
-                    node.visited_time = 0.0
                 elif node.node_type == NODE_TYPES.customer or node.node_type == NODE_TYPES.charging_station:
                     node.visited_order = 0
-                    node.visited_time = 0.0
 
         observation = self._get_obs()
         info = self._get_info()
@@ -298,11 +253,6 @@ class DroneTspEnv(gym.Env):
             self.charge_count += 1 # Lưu lại số lần sạc để biết agent có lạm dụng việc sạc hay không.
             self.total_energy_consumption = 0
 
-        # Cập nhật thời gian
-        self.current_time += round(distance / self.drone_speed, 2)
-        # Gán visited_time để truy hồi trạng thái thời gian của node đã đi qua.
-        selected_node.visited_time = self.current_time
-
         terminated, truncated = False, False
         # Hết năng lượng được xem là truncated. Khi năng lượng tiêu thụ vượt quá mức năng lượng tối đa
         # thì được xem là hết năng lượng.
@@ -313,12 +263,6 @@ class DroneTspEnv(gym.Env):
         # Luôn bắt đầu từ 0, TSP phải quay về điểm bắt đầu thì mới được xem là hoàn thành.
         if action == 0:
             terminated = True
-
-        if selected_node.node_type == NODE_TYPES.customer:
-            if self.current_time < selected_node.start_time:
-                self.current_time = selected_node.start_time
-            if self.current_time > selected_node.end_time:
-                self.late_arrivale_time += self.current_time - selected_node.end_time
 
         observation = self._get_obs()
         info = self._get_info()

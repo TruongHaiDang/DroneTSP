@@ -27,6 +27,3 @@ class Node:
     node_type: NODE_TYPES
     package_weight: float
     visited_order: int
-    start_time: float
-    end_time: float
-    visited_time: float

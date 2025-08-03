@@ -71,8 +71,8 @@ def calc_energy_consumption(gij: float, distanceij: float):
 
     gij_energy_consumption = (total_mass ** 1.5) * lambda_coef
     gij_energy_consumption /= 1_000.0
-    distanceij_energy_consumption = distanceij / 10.0
-    energy_consumption = gij_energy_consumption * distanceij_energy_consumption
+    distanceij_energy_consumption = distanceij / 100.0
+    energy_consumption = gij_energy_consumption + distanceij_energy_consumption
     return round(energy_consumption, 2)
 
 def total_distance_of_a_random_route(nodes):
