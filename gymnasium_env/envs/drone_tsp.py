@@ -235,14 +235,12 @@ class DroneTspEnv(gym.Env):
         selected_node = self.all_nodes[action]
         # Chỉ cập nhật khi action lớn hơn 0, action bằng 0 là node cuối cùng quay về vị trí 
         # xuất phát, không phải đi đến node mới. Không giới hạn số lần đến trạm sạc.
-        if action > 0 and selected_node.node_type != NODE_TYPES.charging_station:
-            order = len([node for node in self.all_nodes if node.visited_order > 0])
-            selected_node.visited_order = order + 1 # Những node đã đi qua cộng với vị trí đang xét.
-
         distance = geodesic((prev_node.lat, prev_node.lon), (selected_node.lat, selected_node.lon)).meters
         self.distance_histories.append(distance)
         if action > 0 and selected_node.node_type != NODE_TYPES.charging_station:
             self.remain_packages_weight -= selected_node.package_weight
+            order = len([node for node in self.all_nodes if node.visited_order > 0])
+            selected_node.visited_order = order + 1 # Những node đã đi qua cộng với vị trí đang xét.
         self.total_distance += distance
         energy_consumption = calc_energy_consumption(gij=self.remain_packages_weight, distanceij=distance)
         self.energy_consumption_histories.append(energy_consumption)
@@ -254,15 +252,18 @@ class DroneTspEnv(gym.Env):
             self.total_energy_consumption = 0
 
         terminated, truncated = False, False
+        # Luôn bắt đầu từ 0, TSP phải quay về điểm bắt đầu thì mới được xem là hoàn thành.
+        if action == 0:
+            self.charge_count += 1
+            self.total_energy_consumption = 0
+            terminated = True
+
         # Hết năng lượng được xem là truncated. Khi năng lượng tiêu thụ vượt quá mức năng lượng tối đa
         # thì được xem là hết năng lượng.
         if self.max_energy != -1 and self.total_energy_consumption >= self.max_energy:
             truncated = True
         if self.max_charge_times != -1 and self.charge_count > self.max_charge_times:
             truncated = True
-        # Luôn bắt đầu từ 0, TSP phải quay về điểm bắt đầu thì mới được xem là hoàn thành.
-        if action == 0:
-            terminated = True
 
         observation = self._get_obs()
         info = self._get_info()
