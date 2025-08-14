@@ -256,7 +256,7 @@ class DroneTspEnv(gym.Env):
         if action == 0:
             self.charge_count += 1
             self.total_energy_consumption = 0
-            terminated = True
+            truncated = True
 
         # Hết năng lượng được xem là truncated. Khi năng lượng tiêu thụ vượt quá mức năng lượng tối đa
         # thì được xem là hết năng lượng.
@@ -264,6 +264,9 @@ class DroneTspEnv(gym.Env):
             truncated = True
         if self.max_charge_times != -1 and self.charge_count > self.max_charge_times:
             truncated = True
+
+        if action == 0 and all(node.visited_order > 0 for node in self.all_nodes if node.node_type != NODE_TYPES.charging_station):
+            terminated = True
 
         observation = self._get_obs()
         info = self._get_info()
