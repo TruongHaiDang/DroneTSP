@@ -157,7 +157,6 @@ class DroneTspEnv(gym.Env):
             "distance_histories": self.distance_histories,
             "energy_consumption_histories": self.energy_consumption_histories,
             "charge_count": self.charge_count,
-            "energy_consumption": self.total_energy_consumption,
             "remain_packages_weight": self.remain_packages_weight,
             "max_energy": self.max_energy
         }
