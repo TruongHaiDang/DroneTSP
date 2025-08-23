@@ -62,7 +62,7 @@ class DroneTspEnv(gym.Env):
         # Đếm số lần sạc
         self.charge_count = 0
         # Tốc độ bay của drone, lấy theo DJI Fly-Cart 30
-        self.drone_speed = 15 * 3.6 # km/h
+        self.drone_speed = 15 # m/s
         # Lưu trữ giá trị distance và năng lượng giữa các cạnh để tạo input graph
         self.distance_histories = []
         self.energy_consumption_histories = []
@@ -241,7 +241,7 @@ class DroneTspEnv(gym.Env):
             order = len([node for node in self.all_nodes if node.visited_order > 0])
             selected_node.visited_order = order + 1 # Những node đã đi qua cộng với vị trí đang xét.
         self.total_distance += distance
-        energy_consumption = calc_energy_consumption(gij=self.remain_packages_weight, distanceij=distance)
+        energy_consumption = calc_energy_consumption(gij=self.remain_packages_weight, distanceij=distance, speedij=self.drone_speed)
         self.energy_consumption_histories.append(energy_consumption)
         self.total_energy_consumption += energy_consumption
 
