@@ -3,7 +3,7 @@ from gymnasium import spaces
 import numpy as np
 from gymnasium_env.envs.node_transformer import NodeTransformer
 from gymnasium_env.envs.interfaces import NODE_TYPES, Node
-from gymnasium_env.envs.utils import calc_energy_consumption, generate_packages_weight
+from gymnasium_env.envs.utils import calc_energy_consumption
 from gymnasium_env.envs.utils import total_distance_of_a_random_route
 from geopy.distance import geodesic
 from gymnasium_env.envs.folium_exporter import export_to_folium
@@ -17,36 +17,66 @@ class DroneTspEnv(gym.Env):
 
     Returns:
     """
+
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
 
-    def __init__(self, render_mode=None, num_customer_nodes: int = 5, num_charge_nodes: int=1, package_weight: float=40, max_energy: float=-1.0, max_charge_times: int=-1):
+    def __init__(
+        self,
+        render_mode=None,
+        num_customer_nodes: int = 5,
+        num_charge_nodes: int = 1,
+        package_weight: float = 40,
+        min_package_weight: float = 1,
+        max_package_weight: float = 5,
+        max_energy: float = -1.0,
+        max_charge_times: int = -1,
+    ):
         """Constructor của class
 
         Args:
             render_mode (str, optional): Loại hiển thị. Defaults to None.
             num_customer_nodes (int, optional): Số lượng node nhận hàng. Defaults to 5.
             num_charge_nodes (int, optional): Số lượng trạm sạc. Defaults to 1.
-            package_weight (float, optional): Tổng khối lượng hàng. Defaults to 40.
+            package_weight (float, optional): Sức chứa tối đa drone có thể mang (kg). Defaults to 40.
+            min_package_weight (float, optional): Khối lượng tối thiểu mỗi đơn hàng (kg). Defaults to 1.
+            max_package_weight (float, optional): Khối lượng tối đa mỗi đơn hàng (kg). Defaults to 5.
             max_energy (float, optional): Tổng năng lượng của drone. Defaults to -1.0.
             max_charge_times (int, optional): Số lần sạc tối đa của drone. Giá trị âm để bỏ giới hạn.
         """
         self.num_customer_nodes = num_customer_nodes
         self.num_charge_nodes = num_charge_nodes
-        self.max_energy = max_energy # Nếu energy_limit = -1 nghĩa là không quan tâm đến năng lượng.
+        self.min_package_weight = min_package_weight
+        self.max_package_weight_per_node = max_package_weight
+        self.max_energy = (
+            max_energy  # Nếu energy_limit = -1 nghĩa là không quan tâm đến năng lượng.
+        )
         self.max_charge_times = max_charge_times
         # Số 1 là node depot
         total_num_nodes = 1 + self.num_customer_nodes + self.num_charge_nodes
-        self.observation_space = spaces.Dict({
-            "nodes": spaces.Box(
-                low=np.array([-180, -90, 0, 0, 0] * total_num_nodes, dtype=np.float32).reshape(total_num_nodes, -1),
-                high=np.array([180, 90, 2, 100, total_num_nodes] * total_num_nodes, dtype=np.float32).reshape(total_num_nodes, -1),
-                shape=(total_num_nodes, NodeTransformer.get_shape()),
-                dtype=np.float32
-            ),
-            "total_distance": spaces.Box(low=0, high=np.inf, shape=(1,), dtype=np.float32),
-            "energy_consumption": spaces.Box(low=0, high=np.inf, shape=(1,), dtype=np.float32),
-            "charge_count": spaces.Box(low=0, high=np.inf, shape=(1,), dtype=np.int16)
-        })
+        self.observation_space = spaces.Dict(
+            {
+                "nodes": spaces.Box(
+                    low=np.array(
+                        [-180, -90, 0, 0, 0] * total_num_nodes, dtype=np.float32
+                    ).reshape(total_num_nodes, -1),
+                    high=np.array(
+                        [180, 90, 2, 100, total_num_nodes] * total_num_nodes,
+                        dtype=np.float32,
+                    ).reshape(total_num_nodes, -1),
+                    shape=(total_num_nodes, NodeTransformer.get_shape()),
+                    dtype=np.float32,
+                ),
+                "total_distance": spaces.Box(
+                    low=0, high=np.inf, shape=(1,), dtype=np.float32
+                ),
+                "energy_consumption": spaces.Box(
+                    low=0, high=np.inf, shape=(1,), dtype=np.float32
+                ),
+                "charge_count": spaces.Box(
+                    low=0, high=np.inf, shape=(1,), dtype=np.int16
+                ),
+            }
+        )
 
         # Action là index trong danh sách tất cả node.
         self.action_space = spaces.Discrete(n=total_num_nodes, start=0)
@@ -56,13 +86,13 @@ class DroneTspEnv(gym.Env):
         self.total_energy_consumption = 0
         # Lưu index của node trước đó
         self.prev_position = 0
-        # Khối lượng hàng drone đang mang
+        # Khối lượng hàng drone có thể mang tối đa (sức chứa)
         self.max_packages_weight = package_weight
         self.remain_packages_weight = self.max_packages_weight
         # Đếm số lần sạc
         self.charge_count = 0
         # Tốc độ bay của drone, lấy theo DJI Fly-Cart 30
-        self.drone_speed = 15 # m/s
+        self.drone_speed = 15  # m/s
         # Lưu trữ giá trị distance và năng lượng giữa các cạnh để tạo input graph
         self.distance_histories = []
         self.energy_consumption_histories = []
@@ -71,16 +101,16 @@ class DroneTspEnv(gym.Env):
         self.render_mode = render_mode
 
     def __init_nodes(self):
-        """Khởi tạo danh sách node
-        """
+        """Khởi tạo danh sách node"""
         # Giới hạn vĩ độ và kinh độ cho khu vực TP.HCM
         LAT_BOTTOM, LAT_TOP = 10.75, 10.80
         LON_LEFT, LON_RIGHT = 106.65, 106.72
 
-        # Sinh trọng lượng các gói hàng cho node khách hàng
-        packages_weight = generate_packages_weight(
-            max_weight=self.remain_packages_weight, total_packages=self.num_customer_nodes
-        )
+        # Sinh trọng lượng từng gói hàng cho node khách hàng (độc lập)
+        packages_weight = [
+            float(self.np_random.uniform(self.min_package_weight, self.max_package_weight_per_node))
+            for _ in range(self.num_customer_nodes)
+        ]
 
         # === Tạo node Depot ===
         depot_lat = float(self.np_random.uniform(LAT_BOTTOM, LAT_TOP))
@@ -137,12 +167,16 @@ class DroneTspEnv(gym.Env):
         Returns:
             obs: Observation
         """
-        nodes_array = np.array([NodeTransformer.encode(node) for node in self.all_nodes], dtype=np.float32)
+        nodes_array = np.array(
+            [NodeTransformer.encode(node) for node in self.all_nodes], dtype=np.float32
+        )
         return {
             "nodes": nodes_array,
             "total_distance": np.array([self.total_distance], dtype=np.float32),
-            "energy_consumption": np.array([self.total_energy_consumption], dtype=np.float32),
-            "charge_count": np.array([self.charge_count], dtype=np.int16)
+            "energy_consumption": np.array(
+                [self.total_energy_consumption], dtype=np.float32
+            ),
+            "charge_count": np.array([self.charge_count], dtype=np.int16),
         }
 
     def _get_info(self):
@@ -158,7 +192,7 @@ class DroneTspEnv(gym.Env):
             "energy_consumption_histories": self.energy_consumption_histories,
             "charge_count": self.charge_count,
             "remain_packages_weight": self.remain_packages_weight,
-            "max_energy": self.max_energy
+            "max_energy": self.max_energy,
         }
 
     def _sample(self) -> int:
@@ -167,10 +201,12 @@ class DroneTspEnv(gym.Env):
         Dùng để thay thế cho action_space.sample().
         """
         unvisited_indices = [
-            idx for idx, node in enumerate(self.all_nodes) if node.visited_order == 0 and node.node_type != NODE_TYPES.charging_station
+            idx
+            for idx, node in enumerate(self.all_nodes)
+            if node.visited_order == 0 and node.node_type != NODE_TYPES.charging_station
         ]
         if not unvisited_indices:
-            return 0 # Không còn node nào để đi thì trả về vị trí đầu tiên là depot
+            return 0  # Không còn node nào để đi thì trả về vị trí đầu tiên là depot
         return np.random.choice(unvisited_indices)
 
     def reset(self, seed=None, options=None):
@@ -204,7 +240,10 @@ class DroneTspEnv(gym.Env):
             for node in self.all_nodes:
                 if node.node_type == NODE_TYPES.depot:
                     node.visited_order = 1
-                elif node.node_type == NODE_TYPES.customer or node.node_type == NODE_TYPES.charging_station:
+                elif (
+                    node.node_type == NODE_TYPES.customer
+                    or node.node_type == NODE_TYPES.charging_station
+                ):
                     node.visited_order = 0
 
         observation = self._get_obs()
@@ -232,22 +271,35 @@ class DroneTspEnv(gym.Env):
         # Action là index của node trong danh sách tất cả node bao gồm khách hàng và trạm sạc.
         prev_node = self.all_nodes[self.prev_position]
         selected_node = self.all_nodes[action]
-        # Chỉ cập nhật khi action lớn hơn 0, action bằng 0 là node cuối cùng quay về vị trí 
+        # Chỉ cập nhật khi action lớn hơn 0, action bằng 0 là node cuối cùng quay về vị trí
         # xuất phát, không phải đi đến node mới. Không giới hạn số lần đến trạm sạc.
-        distance = geodesic((prev_node.lat, prev_node.lon), (selected_node.lat, selected_node.lon)).meters
+        distance = geodesic(
+            (prev_node.lat, prev_node.lon), (selected_node.lat, selected_node.lon)
+        ).meters
         self.distance_histories.append(distance)
         if action > 0 and selected_node.node_type != NODE_TYPES.charging_station:
             self.remain_packages_weight -= selected_node.package_weight
+            if self.remain_packages_weight < 0:
+                # Không để khối lượng còn lại âm để tránh lỗi tính năng lượng
+                self.remain_packages_weight = 0.0
             order = len([node for node in self.all_nodes if node.visited_order > 0])
-            selected_node.visited_order = order + 1 # Những node đã đi qua cộng với vị trí đang xét.
+            selected_node.visited_order = (
+                order + 1
+            )  # Những node đã đi qua cộng với vị trí đang xét.
         self.total_distance += distance
-        energy_consumption = calc_energy_consumption(gij=self.remain_packages_weight, distanceij=distance, speedij=self.drone_speed)
+        energy_consumption = calc_energy_consumption(
+            gij=self.remain_packages_weight,
+            distanceij=distance,
+            speedij=self.drone_speed,
+        )
         self.energy_consumption_histories.append(energy_consumption)
         self.total_energy_consumption += energy_consumption
 
         # Nếu node này là trạm sạc thì reset mức năng lượng đã tiêu thụ
         if selected_node.node_type == NODE_TYPES.charging_station:
-            self.charge_count += 1 # Lưu lại số lần sạc để biết agent có lạm dụng việc sạc hay không.
+            self.charge_count += (
+                1  # Lưu lại số lần sạc để biết agent có lạm dụng việc sạc hay không.
+            )
             self.total_energy_consumption = 0
 
         terminated, truncated = False, False
@@ -255,6 +307,8 @@ class DroneTspEnv(gym.Env):
         if action == 0:
             self.charge_count += 1
             self.total_energy_consumption = 0
+            # Quay về depot để lấy thêm hàng: nạp lại sức chứa
+            self.remain_packages_weight = self.max_packages_weight
             truncated = True
 
         # Hết năng lượng được xem là truncated. Khi năng lượng tiêu thụ vượt quá mức năng lượng tối đa
@@ -264,7 +318,11 @@ class DroneTspEnv(gym.Env):
         if self.max_charge_times != -1 and self.charge_count > self.max_charge_times:
             truncated = True
 
-        if action == 0 and all(node.visited_order > 0 for node in self.all_nodes if node.node_type != NODE_TYPES.charging_station):
+        if action == 0 and all(
+            node.visited_order > 0
+            for node in self.all_nodes
+            if node.node_type != NODE_TYPES.charging_station
+        ):
             terminated = True
 
         observation = self._get_obs()
@@ -298,14 +356,22 @@ class DroneTspEnv(gym.Env):
         # Tạo danh sách các node đã được ghé thăm theo thứ tự
         visited_nodes = sorted(
             [(idx, n) for idx, n in enumerate(self.all_nodes) if n.visited_order > 0],
-            key=lambda x: x[1].visited_order
+            key=lambda x: x[1].visited_order,
         )
         path_indices = [idx for idx, _ in visited_nodes]
-        if self.prev_position == 0: # Khi hàm step chạy xong thì prev_position cũng chính là action.
-            path_indices.append(0) # Nếu như action bằng 0 thì thêm 0 vào cuối để quay về.
+        if (
+            self.prev_position == 0
+        ):  # Khi hàm step chạy xong thì prev_position cũng chính là action.
+            path_indices.append(
+                0
+            )  # Nếu như action bằng 0 thì thêm 0 vào cuối để quay về.
 
         # Xuất bản đồ dạng HTML
-        export_to_folium(nodes=self.all_nodes, path_indices=path_indices, file_path="render/index.html")
+        export_to_folium(
+            nodes=self.all_nodes,
+            path_indices=path_indices,
+            file_path="render/index.html",
+        )
 
     def close(self):
         pass
