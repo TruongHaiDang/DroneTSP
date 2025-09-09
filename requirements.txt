@@ -1,5 +1,3 @@
 gymnasium
-numpy
-matplotlib
 geopy
 folium
