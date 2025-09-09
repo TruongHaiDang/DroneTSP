@@ -45,6 +45,7 @@ def visualize_nodes_status_with_metrics(observation, info):
     w_lon = 10
     w_lat = 10
     w_type = 12
+    w_weight = 12
     w_visit = 13
     w_status = 24  # Width for visible status text
     w_energy = 10
@@ -53,7 +54,7 @@ def visualize_nodes_status_with_metrics(observation, info):
     # Header
     header = (
         f"\n{'Node':<{w_node}} | {'Lon':<{w_lon}} | {'Lat':<{w_lat}} | "
-        f"{'Type':<{w_type}} | {'Visited Order':<{w_visit}} | "
+        f"{'Type':<{w_type}} | {'Weight (kg)':<{w_weight}} | {'Visited Order':<{w_visit}} | "
         f"{'Status':<{w_status}} | {'Energy':<{w_energy}} | {'Distance':<{w_distance}}"
     )
     print(header)
@@ -63,6 +64,7 @@ def visualize_nodes_status_with_metrics(observation, info):
         lon = float(node[0])
         lat = float(node[1])
         node_type = int(node[2])
+        package_weight = float(node[3])
         visited_order = int(node[4])
 
         node_type_str = {0: "Depot", 1: "Customer", 2: "Charging"}.get(
@@ -102,7 +104,7 @@ def visualize_nodes_status_with_metrics(observation, info):
 
         line = (
             f"{idx:<{w_node}} | {lon:<{w_lon}.5f} | {lat:<{w_lat}.5f} | {node_type_str:<{w_type}} | "
-            f"{visited_order:<{w_visit}} | {status_cell} | {energy_str:<{w_energy}} | {distance_str:<{w_distance}}"
+            f"{package_weight:<{w_weight}.2f} | {visited_order:<{w_visit}} | {status_cell} | {energy_str:<{w_energy}} | {distance_str:<{w_distance}}"
         )
         print(line)
 
@@ -114,9 +116,9 @@ if __name__ == "__main__":
         num_customer_nodes=5,
         num_charge_nodes=0,
         package_weight=40,
-        min_package_weight=1,
-        max_package_weight=5,
-        max_energy=250
+        min_package_weight=5,
+        max_package_weight=10,
+        max_energy=1000
     )
     observation, info = env.reset()
 
@@ -127,5 +129,5 @@ if __name__ == "__main__":
         done = terminated or truncated
         print('='*42, 'Action:', action, '='*42)
         visualize_nodes_status_with_metrics(observation, info)
-        visualize_energy_status(observation)
+        visualize_energy_status(observation, info)
         sleep(0.5)

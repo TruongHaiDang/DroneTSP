@@ -1,110 +1,137 @@
 # DroneTSP
 
-Môi trường drone giao hàng dựa trên bài toán TSP. Môi trường này dùng cho các dự án học tăng cường.
-
-## Môi trường
-
-Kho lưu trữ này lưu trữ các ví dụ được hiển thị [trong tài liệu tạo môi trường](https://gymnasium.farama.org/tutorials/gymnasium_basics/environment_creation/).
-
-- `DroneTspEnv`: Môi trường drone giao hàng dựa trên bài toán TSP.
-
-## Bộ bao
-
-Kho lưu trữ này lưu trữ các ví dụ được hiển thị [trong tài liệu bộ bao](https://gymnasium.farama.org/api/wrappers/).
-
-- `ClipReward`: Một `RewardWrapper` cắt giảm phần thưởng ngay lập tức vào một phạm vi hợp lệ
-- `DiscreteActions`: Một `ActionWrapper` giới hạn không gian hành động vào một tập hợp con hữu hạn
-- `RelativePosition`: Một `ObservationWrapper` tính toán vị trí tương đối giữa một tác nhân và một mục tiêu
-- `ReacherRewardWrapper`: Cho phép chúng ta cân nhắc các điều khoản phần thưởng cho môi trường reacher
-
-## Đóng góp
-
-Nếu bạn muốn đóng góp, hãy làm theo các bước sau:
-
-- Fork kho lưu trữ này
-- Clone fork của bạn
-- Cài đặt pre-commit qua `pre-commit install`
-
-PRs có thể yêu cầu PRs đi kèm trong [kho tài liệu](https://github.com/Farama-Foundation/Gymnasium/tree/main/docs).
+Môi trường Drone TSP cho Gymnasium mô phỏng drone giao hàng trong thành phố (TP.HCM), với các nút: kho (depot), khách hàng và trạm sạc. Toàn bộ đặc tả dưới đây được tổng hợp từ mã nguồn trong thư mục `gymnasium_env/envs`.
 
 ## Cài đặt
 
-Để cài đặt môi trường mới của bạn, hãy chạy các lệnh sau:
-
 ```bash
-cd gymnasium_env
 pip install -e .
 ```
 
-# Đặc tả hệ thống và hướng dẫn sử dụng
+Sau cài đặt, môi trường được đăng ký ở id: `gymnasium_env/DroneTsp-v1`.
 
-## 🚁 DroneTSP
+## Sử dụng nhanh
 
-- **Mục tiêu**:
-  Lập lộ trình tối ưu cho drone giao hàng từ kho đến nhiều khách hàng, sử dụng ít năng lượng nhất, không hết pin giữa đường và quay về kho an toàn. Có thể sử dụng trạm sạc nhưng bị phạt nếu lạm dụng.
+```python
+import gymnasium as gym
 
-- **Không gian hành động**: `Discrete(N)`
-  `N = 1 + num_customer_nodes + num_charge_nodes`.
-  Mỗi action tương ứng với chỉ số của node trong danh sách các node.
+env = gym.make(
+    id="gymnasium_env/DroneTsp-v1",
+    render_mode="human",         # "human" hoặc "rgb_array"
+    num_customer_nodes=5,
+    num_charge_nodes=1,
+    package_weight=40,            # sức chứa tối đa (kg)
+    min_package_weight=1,
+    max_package_weight=5,
+    max_energy=-1.0,              # âm để bỏ giới hạn năng lượng
+    max_charge_times=-1           # âm để bỏ giới hạn số lần sạc
+)
 
-  - `0`: Kho (Depot) – bắt buộc quay về cuối hành trình.
-  - `1..num_customer_nodes`: Các khách hàng.
-  - `num_customer_nodes+1..N-1`: Các trạm sạc.
+obs, info = env.reset(options={"new_coordinates": True})
+done = False
+while not done:
+    action = env.unwrapped._sample()  # Lấy ngẫu nhiên node khách hàng chưa đi
+    obs, reward, terminated, truncated, info = env.step(action)
+    done = terminated or truncated
+```
 
-- **Không gian quan sát**: `Dict` gồm:
+## DroneTspEnv
 
-  - `nodes`: `Box(shape=(N, 5))`
-    Mỗi node được mã hóa thành `[lon, lat, node_type, package_weight, visited_order]`.
-  - `total_distance`: Tổng quãng đường đã đi.
-  - `energy_consumption`: Năng lượng đã tiêu thụ.
-  - `time`: Thời gian đã trôi qua (hoặc tổng thời gian di chuyển, hoặc thời gian hiện tại, tuỳ theo cách bạn cài đặt).
+- Mã nguồn: `gymnasium_env/envs/drone_tsp.py`
+- Đăng ký: `gymnasium_env/DroneTsp-v1`
 
-- **Phần thưởng**:
+### Tham số khởi tạo
 
-  - Chỉ được cung cấp khi kết thúc episode (terminated hoặc truncated).
-  - Công thức:
+- `render_mode`: `None | "human" | "rgb_array"`
+- `num_customer_nodes` (int): số khách hàng (mặc định 5)
+- `num_charge_nodes` (int): số trạm sạc (mặc định 1)
+- `package_weight` (float): sức chứa tối đa của drone (kg, mặc định 40)
+- `min_package_weight` (float): khối lượng đơn tối thiểu (kg, mặc định 1)
+- `max_package_weight` (float): khối lượng đơn tối đa (kg, mặc định 5)
+- `max_energy` (float): ngưỡng năng lượng tiêu thụ; `-1` để bỏ giới hạn
+- `max_charge_times` (int): số lần nạp năng lượng tối đa; âm để bỏ giới hạn
 
-    - Nếu thành công (quay về depot):
-      `reward = -distance - energy - 10 * số lần sạc`
-    - Nếu thất bại (hết năng lượng):
-      `reward = -1000 - distance - energy - 10 * số lần sạc`
+### Không gian quan sát (`observation_space`)
 
-- **Tiêu chí kết thúc**:
+- `Dict` gồm:
+  - `nodes`: `Box(shape=(N, 5), dtype=float32)` với `N = 1 + num_customer_nodes + num_charge_nodes`
+    - Mỗi node được mã hóa: `[lon, lat, node_type, package_weight, visited_order]`
+    - `node_type`: 0=depot, 1=customer, 2=charging_station
+  - `total_distance`: tổng quãng đường đã đi (m)
+  - `energy_consumption`: năng lượng tiêu thụ tích lũy hiện tại
+  - `charge_count`: số lần sạc đã thực hiện
 
-  - `terminated = True` khi agent chọn action = 0 (tức quay về depot).
-  - `truncated = True` khi năng lượng tiêu thụ vượt quá `max_energy`.
+### Không gian hành động (`action_space`)
 
-- **Đặc điểm nổi bật**:
+- `Discrete(N, start=0)` với cùng `N` như trên
+- `0`: depot; `1..num_customer_nodes`: khách hàng; còn lại: trạm sạc
 
-  - Mô phỏng thực tế với bản đồ địa lý khu vực TP.HCM.
-  - Các node được tạo ngẫu nhiên trong khoảng tọa độ thực.
-  - Trọng lượng hàng được sinh để tổng không vượt quá sức chở drone (40kg).
-  - Mức năng lượng và thời gian giới hạn có thể tùy chỉnh hoặc vô hạn (`max_energy = -1`, `max_time = -1`).
-  - Môi trường phù hợp để thử nghiệm thuật toán: Q-learning, GNN, A3C, PPO,...
+### Quy tắc bước (`step`)
 
-- **Chế độ hiển thị**:
+- Trả về: `(observation, reward, terminated, truncated, info)`
+- `reward`: là khoảng cách (m) của cạnh vừa di chuyển (theo `geodesic`) cho hành động hiện tại.
+- Khi đi đến khách hàng: giảm `remain_packages_weight` theo `package_weight` của node đó; ghi `visited_order`.
+- Khi đến trạm sạc: tăng `charge_count` và đặt lại `total_energy_consumption` về 0.
+- Khi `action == 0` (đi về depot):
+  - tăng `charge_count`, đặt lại `total_energy_consumption` về 0
+  - nạp lại sức chứa: `remain_packages_weight = package_weight`
+  - `truncated = True` (kết thúc sớm một vòng hành trình)
+- Điều kiện dừng:
+  - `terminated = True` nếu `action == 0` và tất cả các node không phải trạm sạc đã được ghé (`visited_order > 0`)
+  - `truncated = True` nếu vượt `max_energy` hoặc vượt `max_charge_times` hoặc khi `action == 0`
 
-  - `render_mode='human'`: Xuất bản đồ HTML trực quan với đường đi, node.
-  - Bản đồ được lưu tại `render/index.html` sau mỗi bước.
+### Reset
 
-- **Cách sử dụng**:
+- `env.reset(seed=None, options=None)`:
+  - `options["new_coordinates"] = True` (mặc định): tạo lại toàn bộ vị trí các node (TP.HCM trong khung [10.75–10.80] x [106.65–106.72])
+  - Nếu `False`: giữ nguyên toạ độ cũ, đặt lại `visited_order` và trạng thái tích lũy
 
-  ```python
-  import gymnasium
+### Render
 
-  env = gymnasium.make(
-      id="gymnasium_env/DroneTsp-v0",
-      render_mode="human",
-      num_customer_nodes=5,
-      num_charge_nodes=1,
-      max_energy=50000.0,  # hoặc -1 để bỏ giới hạn năng lượng
-      max_time=-1  # hoặc -1 để bỏ giới hạn thời gian
-  )
+- `render_mode="human"`: sinh bản đồ HTML ở `render/index.html` bằng `folium`, hiển thị đường đi theo thứ tự `visited_order`
+- `render_mode="rgb_array"`: trả về frame từ `_render_frame()` (không vẽ GUI ngoài)
 
-  observation, info = env.reset()
-  done = False
-  while not done:
-      action = env.unwrapped._sample()  # Lấy ngẫu nhiên node chưa đi
-      observation, reward, terminated, truncated, info = env.step(action)
-      done = terminated or truncated
-  ```
+### Trường thông tin (`info`)
+
+- `drone_speed` (m/s), `customers` (danh sách node khách hàng),
+  `distance_histories`, `energy_consumption_histories`, `charge_count`,
+  `remain_packages_weight`, `max_energy`.
+
+## Các mô-đun trong `envs/`
+
+### `interfaces.py`
+
+- `NODE_TYPES`: Enum các loại node: `depot=0`, `customer=1`, `charging_station=2`
+- `Node`: dataclass gồm `lon, lat, node_type, package_weight, visited_order`
+
+### `node_transformer.py`
+
+- `NodeTransformer.encode(Node) -> np.ndarray[5]`: mã hoá Node thành mảng 5 phần tử
+- `NodeTransformer.decode(arr) -> Node`: giải mã về Node
+- `NodeTransformer.get_shape() -> int`: kích thước vector nút (=5)
+
+### `utils.py`
+
+- `generate_packages_weight(max_weight, total_packages)`:
+  sinh danh sách khối lượng nguyên, tổng xấp xỉ `max_weight`
+- `calc_energy_consumption(gij, distanceij, speedij=15)`:
+  tính năng lượng tiêu thụ cho cạnh theo công thức trong bài báo; đầu ra làm tròn 2 chữ số
+- `total_distance_of_a_random_route(nodes)`:
+  tổng quãng đường qua danh sách node theo thứ tự
+- `calc_distance(node_a, node_b)`:
+  khoảng cách địa lý giữa hai điểm `[lon, lat]`
+
+### `folium_exporter.py`
+
+- `export_to_folium(nodes, path_indices, file_path="render/index.html")`:
+  vẽ map, đánh dấu màu theo loại node và vẽ `Polyline` theo `path_indices`
+
+## Ghi chú
+
+- Id môi trường đúng là `gymnasium_env/DroneTsp-v1` (được đăng ký tại `gymnasium_env/__init__.py`).
+- `reward` hiện là khoảng cách bước đi; nếu bạn muốn phần thưởng tập trung mục tiêu (ví dụ nhỏ hoá tổng quãng đường, năng lượng, số lần sạc), bạn có thể điều chỉnh trong `step()` để trả về giá trị phù hợp.
+
+## Đóng góp
+
+- Cài đặt `pre-commit` và chạy `pre-commit install`
+- Mở PR với mô tả rõ thay đổi và cách kiểm thử

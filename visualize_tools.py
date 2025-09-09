@@ -21,13 +21,13 @@ def visualize_nodes_status(observation):
 
         print(f"{idx:<6} | {lon:<10.5f} | {lat:<10.5f} | {node_type_str:<12} | {visited_order:<13} | {status}")
 
-def visualize_energy_status(observation):
-    energy = float(observation["energy_consumption"][0])
+def visualize_energy_status(observation, info):
     charge_count = int(observation["charge_count"][0])
     total_distance = float(observation["total_distance"][0])
+    remain_packages_weight = float(info.get("remain_packages_weight", 0.0))
 
-    print("\n\033[95mNĂNG LƯỢNG HIỆN TẠI\033[0m")
+    print("\n\033[95mTỔNG KẾT\033[0m")
     print("\033[95m" + "-" * 25 + "\033[0m")
-    print(f"\033[96mNăng lượng tiêu thụ : {energy:.2f}\033[0m")
+    print(f"\033[96mKhối lượng còn lại : {remain_packages_weight:.2f} kg\033[0m")
     print(f"\033[96mSố lần sạc         : {charge_count}\033[0m")
     print(f"\033[96mTổng khoảng cách   : {total_distance:.2f} m\033[0m")
