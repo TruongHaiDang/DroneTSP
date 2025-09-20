@@ -306,10 +306,10 @@ class DroneTspEnv(gym.Env):
         # Luôn bắt đầu từ 0, TSP phải quay về điểm bắt đầu thì mới được xem là hoàn thành.
         if action == 0:
             self.charge_count += 1
+            # Reset năng lượng đã tiêu thụ
             self.total_energy_consumption = 0
             # Quay về depot để lấy thêm hàng: nạp lại sức chứa
             self.remain_packages_weight = self.max_packages_weight
-            truncated = True
 
         # Hết năng lượng được xem là truncated. Khi năng lượng tiêu thụ vượt quá mức năng lượng tối đa
         # thì được xem là hết năng lượng.
