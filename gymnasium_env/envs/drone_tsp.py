@@ -25,7 +25,7 @@ class DroneTspEnv(gym.Env):
         render_mode=None,
         num_customer_nodes: int = 5,
         num_charge_nodes: int = 1,
-        package_weight: float = 40,
+        package_weights: float = 40,
         min_package_weight: float = 1,
         max_package_weight: float = 5,
         max_energy: float = -1.0,
@@ -37,7 +37,7 @@ class DroneTspEnv(gym.Env):
             render_mode (str, optional): Loại hiển thị. Defaults to None.
             num_customer_nodes (int, optional): Số lượng node nhận hàng. Defaults to 5.
             num_charge_nodes (int, optional): Số lượng trạm sạc. Defaults to 1.
-            package_weight (float, optional): Sức chứa tối đa drone có thể mang (kg). Defaults to 40.
+            package_weights (float, optional): Sức chứa tối đa drone có thể mang (kg). Defaults to 40.
             min_package_weight (float, optional): Khối lượng tối thiểu mỗi đơn hàng (kg). Defaults to 1.
             max_package_weight (float, optional): Khối lượng tối đa mỗi đơn hàng (kg). Defaults to 5.
             max_energy (float, optional): Tổng năng lượng của drone. Defaults to -1.0.
@@ -45,7 +45,7 @@ class DroneTspEnv(gym.Env):
         """
         self.num_customer_nodes = num_customer_nodes
         self.num_charge_nodes = num_charge_nodes
-        self.min_package_weight = min_package_weight
+        self.min_package_weight_per_node = min_package_weight
         self.max_package_weight_per_node = max_package_weight
         self.max_energy = (
             max_energy  # Nếu energy_limit = -1 nghĩa là không quan tâm đến năng lượng.
@@ -87,7 +87,7 @@ class DroneTspEnv(gym.Env):
         # Lưu index của node trước đó
         self.prev_position = 0
         # Khối lượng hàng drone có thể mang tối đa (sức chứa)
-        self.max_packages_weight = package_weight
+        self.max_packages_weight = package_weights
         self.remain_packages_weight = self.max_packages_weight
         # Đếm số lần sạc
         self.charge_count = 0
@@ -108,7 +108,7 @@ class DroneTspEnv(gym.Env):
 
         # Sinh trọng lượng từng gói hàng cho node khách hàng (độc lập)
         packages_weight = [
-            float(self.np_random.uniform(self.min_package_weight, self.max_package_weight_per_node))
+            float(self.np_random.uniform(self.min_package_weight_per_node, self.max_package_weight_per_node))
             for _ in range(self.num_customer_nodes)
         ]
 
@@ -268,6 +268,7 @@ class DroneTspEnv(gym.Env):
             truncated (bool): True nếu episode kết thúc do vượt quá giới hạn năng lượng, ngược lại là False.
             info (dict): Thông tin bổ sung về trạng thái môi trường.
         """
+        terminated, truncated = False, False
         # Action là index của node trong danh sách tất cả node bao gồm khách hàng và trạm sạc.
         prev_node = self.all_nodes[self.prev_position]
         selected_node = self.all_nodes[action]
@@ -281,7 +282,7 @@ class DroneTspEnv(gym.Env):
             self.remain_packages_weight -= selected_node.package_weight
             if self.remain_packages_weight < 0:
                 # Không để khối lượng còn lại âm để tránh lỗi tính năng lượng
-                self.remain_packages_weight = 0.0
+                truncated = True
             order = len([node for node in self.all_nodes if node.visited_order > 0])
             selected_node.visited_order = (
                 order + 1
@@ -302,7 +303,6 @@ class DroneTspEnv(gym.Env):
             )
             self.total_energy_consumption = 0
 
-        terminated, truncated = False, False
         # Luôn bắt đầu từ 0, TSP phải quay về điểm bắt đầu thì mới được xem là hoàn thành.
         if action == 0:
             self.charge_count += 1
