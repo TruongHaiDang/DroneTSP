@@ -115,7 +115,7 @@ if __name__ == "__main__":
         render_mode='human',
         num_customer_nodes=5,
         num_charge_nodes=0,
-        package_weight=40,
+        package_weights=40,
         min_package_weight=5,
         max_package_weight=10,
         max_energy=1000
