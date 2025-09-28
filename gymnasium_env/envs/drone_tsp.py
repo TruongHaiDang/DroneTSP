@@ -176,7 +176,7 @@ class DroneTspEnv(gym.Env):
             "energy_consumption": np.array(
                 [self.total_energy_consumption], dtype=np.float32
             ),
-            "charge_count": np.array([self.charge_count], dtype=np.int16),
+            "charge_count": np.array([self.charge_count], dtype=np.int32),
         }
 
     def _get_info(self):
