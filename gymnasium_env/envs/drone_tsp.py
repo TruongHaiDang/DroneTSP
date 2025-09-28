@@ -73,7 +73,7 @@ class DroneTspEnv(gym.Env):
                     low=0, high=np.inf, shape=(1,), dtype=np.float32
                 ),
                 "charge_count": spaces.Box(
-                    low=0, high=np.inf, shape=(1,), dtype=np.int16
+                    low=0, high=np.inf, shape=(1,), dtype=np.int32
                 ),
             }
         )
