@@ -73,7 +73,7 @@ class DroneTspEnv(gym.Env):
                     low=0, high=np.inf, shape=(1,), dtype=np.float32
                 ),
                 "charge_count": spaces.Box(
-                    low=0, high=np.inf, shape=(1,), dtype=np.int32
+                    low=0, high=np.inf, shape=(1,), dtype=np.int16
                 ),
             }
         )
@@ -176,7 +176,7 @@ class DroneTspEnv(gym.Env):
             "energy_consumption": np.array(
                 [self.total_energy_consumption], dtype=np.float32
             ),
-            "charge_count": np.array([self.charge_count], dtype=np.int32),
+            "charge_count": np.array([self.charge_count], dtype=np.int16),
         }
 
     def _get_info(self):
