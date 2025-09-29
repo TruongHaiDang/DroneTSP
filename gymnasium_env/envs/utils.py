@@ -1,5 +1,9 @@
 import random
+from typing import Iterable
+
 from geopy.distance import geodesic
+
+from gymnasium_env.envs.interfaces import NODE_TYPES, Node
 
 
 def generate_packages_weight(max_weight: float, total_packages: int):
@@ -96,3 +100,72 @@ def total_distance_of_a_random_route(nodes):
 def calc_distance(node_a, node_b):
     distance = geodesic((node_a[1], node_a[0]), (node_b[1], node_b[0])).meters
     return round(distance, 2)
+
+
+def is_new_env_valid(
+    nodes: Iterable[Node],
+    max_energy: float,
+    drone_speed: float,
+) -> bool:
+    """Đánh giá tính hợp lệ của danh sách node dựa trên giới hạn năng lượng của drone.
+
+    Hàm kiểm tra xem drone có đủ năng lượng để di chuyển từ depot tới từng node và quay
+    về depot hay không. Drone được giả định mang đúng khối lượng hàng của từng node trên
+    chặng đi và trở về với khối lượng bằng 0.
+
+    Args:
+        nodes (Iterable[Node]): Tập node cần kiểm tra, trong đó phải có đúng một depot.
+        max_energy (float): Giới hạn năng lượng hiện tại của drone. Giá trị âm nghĩa là
+            không giới hạn.
+        drone_speed (float): Vận tốc bay của drone (m/s).
+
+    Returns:
+        bool: ``True`` nếu tất cả các node đều có thể thực hiện lộ trình depot -> node ->
+            depot trong giới hạn năng lượng, ``False`` nếu tồn tại node không đáp ứng
+            điều kiện này.
+    """
+
+    # Không giới hạn năng lượng thì mặc định hợp lệ.
+    if max_energy < 0:
+        return True
+
+    node_list = list(nodes)
+    if not node_list:
+        return True
+
+    depot_candidates = [node for node in node_list if node.node_type == NODE_TYPES.depot]
+    if len(depot_candidates) != 1:
+        raise ValueError("Node list must contain exactly one depot node.")
+    depot = depot_candidates[0]
+
+    depot_coord = (depot.lat, depot.lon)
+
+    for node in node_list:
+        if node is depot:
+            continue
+
+        node_coord = (node.lat, node.lon)
+
+        # Khoảng cách đi và về (mét).
+        distance_to_node = geodesic(depot_coord, node_coord).meters
+        distance_to_depot = geodesic(node_coord, depot_coord).meters
+
+        # Khối lượng khi đi giao hàng và khi quay về.
+        outbound_weight = node.package_weight if node.node_type == NODE_TYPES.customer else 0.0
+
+        outbound_energy = calc_energy_consumption(
+            gij=outbound_weight,
+            distanceij=distance_to_node,
+            speedij=drone_speed,
+        )
+        inbound_energy = calc_energy_consumption(
+            gij=0.0,
+            distanceij=distance_to_depot,
+            speedij=drone_speed,
+        )
+
+        total_round_trip_energy = outbound_energy + inbound_energy
+        if total_round_trip_energy > max_energy:
+            return False
+
+    return True
