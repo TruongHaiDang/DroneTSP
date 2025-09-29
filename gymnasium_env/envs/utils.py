@@ -106,24 +106,32 @@ def is_new_env_valid(
     nodes: Iterable[Node],
     max_energy: float,
     drone_speed: float,
+    max_payload: float,
 ) -> bool:
     """Đánh giá tính hợp lệ của danh sách node dựa trên giới hạn năng lượng của drone.
 
     Hàm kiểm tra xem drone có đủ năng lượng để di chuyển từ depot tới từng node và quay
-    về depot hay không. Drone được giả định mang đúng khối lượng hàng của từng node trên
-    chặng đi và trở về với khối lượng bằng 0.
+    về depot hay không. Drone được giả định mang tối đa tải trọng trên chặng đi và trở
+    về với khối lượng bằng 0.
 
     Args:
         nodes (Iterable[Node]): Tập node cần kiểm tra, trong đó phải có đúng một depot.
         max_energy (float): Giới hạn năng lượng hiện tại của drone. Giá trị âm nghĩa là
             không giới hạn.
         drone_speed (float): Vận tốc bay của drone (m/s).
+        max_payload (float): Khối lượng tối đa drone có thể mang (kg).
 
     Returns:
         bool: ``True`` nếu tất cả các node đều có thể thực hiện lộ trình depot -> node ->
             depot trong giới hạn năng lượng, ``False`` nếu tồn tại node không đáp ứng
             điều kiện này.
+
+    Raises:
+        ValueError: Nếu ``max_payload`` âm hoặc danh sách node không chứa đúng một depot.
     """
+
+    if max_payload < 0:
+        raise ValueError("Max payload must be non-negative.")
 
     # Không giới hạn năng lượng thì mặc định hợp lệ.
     if max_energy < 0:
@@ -146,21 +154,20 @@ def is_new_env_valid(
 
         node_coord = (node.lat, node.lon)
 
-        # Khoảng cách đi và về (mét).
-        distance_to_node = geodesic(depot_coord, node_coord).meters
-        distance_to_depot = geodesic(node_coord, depot_coord).meters
+        # Khoảng cách đi và về (mét). Khoảng cách hai chiều giống nhau nên chỉ tính một lần.
+        round_trip_distance = geodesic(depot_coord, node_coord).meters
 
-        # Khối lượng khi đi giao hàng và khi quay về.
-        outbound_weight = node.package_weight if node.node_type == NODE_TYPES.customer else 0.0
+        # Khối lượng mang theo ở chiều đi giả định bằng tối đa tải trọng cho trường hợp xấu nhất.
+        outbound_weight = max_payload if node.node_type == NODE_TYPES.customer else 0.0
 
         outbound_energy = calc_energy_consumption(
             gij=outbound_weight,
-            distanceij=distance_to_node,
+            distanceij=round_trip_distance,
             speedij=drone_speed,
         )
         inbound_energy = calc_energy_consumption(
             gij=0.0,
-            distanceij=distance_to_depot,
+            distanceij=round_trip_distance,
             speedij=drone_speed,
         )
 

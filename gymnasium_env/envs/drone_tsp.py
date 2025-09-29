@@ -172,6 +172,7 @@ class DroneTspEnv(gym.Env):
                 nodes=all_nodes,
                 max_energy=self.max_energy,
                 drone_speed=self.drone_speed,
+                max_payload=self.max_packages_weight,
             ):
                 self.depot = depot
                 self.customer_nodes = customer_nodes
