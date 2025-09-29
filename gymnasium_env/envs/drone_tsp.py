@@ -3,8 +3,11 @@ from gymnasium import spaces
 import numpy as np
 from gymnasium_env.envs.node_transformer import NodeTransformer
 from gymnasium_env.envs.interfaces import NODE_TYPES, Node
-from gymnasium_env.envs.utils import calc_energy_consumption
-from gymnasium_env.envs.utils import total_distance_of_a_random_route
+from gymnasium_env.envs.utils import (
+    calc_energy_consumption,
+    is_new_env_valid,
+    total_distance_of_a_random_route,
+)
 from geopy.distance import geodesic
 from gymnasium_env.envs.folium_exporter import export_to_folium
 
@@ -106,60 +109,78 @@ class DroneTspEnv(gym.Env):
         LAT_BOTTOM, LAT_TOP = 10.75, 10.80
         LON_LEFT, LON_RIGHT = 106.65, 106.72
 
-        # Sinh trọng lượng từng gói hàng cho node khách hàng (độc lập)
-        packages_weight = [
-            float(self.np_random.uniform(self.min_package_weight_per_node, self.max_package_weight_per_node))
-            for _ in range(self.num_customer_nodes)
-        ]
-
-        # === Tạo node Depot ===
-        depot_lat = float(self.np_random.uniform(LAT_BOTTOM, LAT_TOP))
-        depot_lon = float(self.np_random.uniform(LON_LEFT, LON_RIGHT))
-        self.depot = [
-            Node(
-                lon=depot_lon,  # longitude
-                lat=depot_lat,  # latitude
-                node_type=NODE_TYPES.depot,
-                package_weight=0.0,
-                visited_order=1,
-            )
-        ]
-
-        # === Tạo node Khách hàng ===
-        self.customer_nodes = []
-        for i in range(self.num_customer_nodes):
-            # Random vị trí node khách hàng
-            lat = float(self.np_random.uniform(LAT_BOTTOM, LAT_TOP))
-            lon = float(self.np_random.uniform(LON_LEFT, LON_RIGHT))
-
-            # Thêm node khách hàng vào danh sách
-            self.customer_nodes.append(
-                Node(
-                    lon=lon,
-                    lat=lat,
-                    node_type=NODE_TYPES.customer,
-                    package_weight=float(packages_weight[i]),
-                    visited_order=0,
+        max_retry = 100
+        for _ in range(max_retry):
+            # Sinh trọng lượng từng gói hàng cho node khách hàng (độc lập)
+            packages_weight = [
+                float(
+                    self.np_random.uniform(
+                        self.min_package_weight_per_node, self.max_package_weight_per_node
+                    )
                 )
-            )
+                for _ in range(self.num_customer_nodes)
+            ]
 
-        # === Tạo node Trạm sạc ===
-        self.charge_nodes = []
-        for i in range(self.num_charge_nodes):
-            lat = float(self.np_random.uniform(LAT_BOTTOM, LAT_TOP))
-            lon = float(self.np_random.uniform(LON_LEFT, LON_RIGHT))
-            self.charge_nodes.append(
+            # === Tạo node Depot ===
+            depot_lat = float(self.np_random.uniform(LAT_BOTTOM, LAT_TOP))
+            depot_lon = float(self.np_random.uniform(LON_LEFT, LON_RIGHT))
+            depot = [
                 Node(
-                    lon=lon,
-                    lat=lat,
-                    node_type=NODE_TYPES.charging_station,
+                    lon=depot_lon,  # longitude
+                    lat=depot_lat,  # latitude
+                    node_type=NODE_TYPES.depot,
                     package_weight=0.0,
-                    visited_order=0,
+                    visited_order=1,
                 )
-            )
+            ]
 
-        # Gộp tất cả các node vào danh sách all_nodes
-        self.all_nodes = self.depot + self.customer_nodes + self.charge_nodes
+            # === Tạo node Khách hàng ===
+            customer_nodes = []
+            for i in range(self.num_customer_nodes):
+                # Random vị trí node khách hàng
+                lat = float(self.np_random.uniform(LAT_BOTTOM, LAT_TOP))
+                lon = float(self.np_random.uniform(LON_LEFT, LON_RIGHT))
+
+                # Thêm node khách hàng vào danh sách
+                customer_nodes.append(
+                    Node(
+                        lon=lon,
+                        lat=lat,
+                        node_type=NODE_TYPES.customer,
+                        package_weight=float(packages_weight[i]),
+                        visited_order=0,
+                    )
+                )
+
+            # === Tạo node Trạm sạc ===
+            charge_nodes = []
+            for _ in range(self.num_charge_nodes):
+                lat = float(self.np_random.uniform(LAT_BOTTOM, LAT_TOP))
+                lon = float(self.np_random.uniform(LON_LEFT, LON_RIGHT))
+                charge_nodes.append(
+                    Node(
+                        lon=lon,
+                        lat=lat,
+                        node_type=NODE_TYPES.charging_station,
+                        package_weight=0.0,
+                        visited_order=0,
+                    )
+                )
+
+            all_nodes = depot + customer_nodes + charge_nodes
+            if is_new_env_valid(
+                nodes=all_nodes,
+                max_energy=self.max_energy,
+                drone_speed=self.drone_speed,
+                max_payload=self.max_packages_weight,
+            ):
+                self.depot = depot
+                self.customer_nodes = customer_nodes
+                self.charge_nodes = charge_nodes
+                self.all_nodes = all_nodes
+                return
+
+        raise RuntimeError("Unable to create a valid environment configuration within retry limit.")
 
     def _get_obs(self):
         """Định nghĩa observation của môi trường
