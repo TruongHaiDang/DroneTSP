@@ -318,11 +318,9 @@ class DroneTspEnv(gym.Env):
         self.total_energy_consumption += energy_consumption
 
         # Nếu node này là trạm sạc thì reset mức năng lượng đã tiêu thụ
-        if selected_node.node_type == NODE_TYPES.charging_station:
-            self.charge_count += (
-                1  # Lưu lại số lần sạc để biết agent có lạm dụng việc sạc hay không.
-            )
-            self.total_energy_consumption = 0
+        # if selected_node.node_type == NODE_TYPES.charging_station:
+        #     self.charge_count += 1  # Lưu lại số lần sạc để biết agent có lạm dụng việc sạc hay không.
+        #     self.total_energy_consumption = 0
 
         # Luôn bắt đầu từ 0, TSP phải quay về điểm bắt đầu thì mới được xem là hoàn thành.
         if action == 0:
